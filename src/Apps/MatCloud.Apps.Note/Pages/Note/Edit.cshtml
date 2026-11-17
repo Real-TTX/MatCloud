@@ -4,8 +4,19 @@
     var note = Model.Note;
     var title = Model.IsNew ? "Neue Notiz" : note!.Kind == NoteKind.Protected ? $"{note.Title} umbenennen" : note.Title;
     ViewData["Title"] = title;
-    ViewData["PageSub"] = Model.IsNew ? "Sie steht sofort auch in ThixNote auf deinen Geräten." : $"{note!.KindName} · geändert {Dates.Stamp(note.UpdatedDate)}";
-    ViewData["Crumbs"] = new List<(string, string?)> { ("Notizen", "/Note"), (title, null) };
+    ViewData["PageSub"] = Model.IsNew ? "Sie steht sofort auch in ThixNote auf deinen Geräten." : $"{note!.KindName} · geändert {Dates.Stamp(note.UpdatedDate)} {note.Where}";
+    var crumbs = new List<(string, string?)> { ("Notizen", "/Note") };
+    if (!Model.IsNew)
+    {
+        crumbs.Add((note!.Title, "/Note/View?key=" + note.Key));
+        crumbs.Add((note.Kind == NoteKind.Protected ? "Umbenennen" : "Bearbeiten", null));
+    }
+    else
+    {
+        crumbs.Add(("Neue Notiz", null));
+    }
+
+    ViewData["Crumbs"] = crumbs;
     ViewData["Width"] = "wide";
     var folders = new List<Choice> { new(string.Empty, "Oberste Ebene") };
     folders.AddRange(Model.Folders.Select(f => new Choice(f, f)));
@@ -14,26 +25,39 @@
         folders.Add(new Choice(Model.Folder, Model.Folder));
     }
 
-    var kinds = new List<Choice> { new(nameof(NoteKind.Markdown), "Markdown", "Überschriften, Listen, Links – mit Vorschau"), new(nameof(NoteKind.Text), "Text", "Reiner Text") };
     var back = Model.IsNew ? "/Note" : "/Note/View?key=" + note!.Key;
+    var textError = ViewData.ModelState.TryGetValue("Text", out var textState) ? textState.Errors.FirstOrDefault()?.ErrorMessage : null;
+    var markdown = Model.Kind == NoteKind.Markdown;
 }
 
 @section TopActions {
     <partial name="_NoteTopActions" />
 }
 
-<form class="mat-form" method="post" novalidate>
+<form class="mat-form mc-note-form" method="post" novalidate data-note-form>
     <input type="hidden" name="Key" value="@Model.Key" />
     <input type="hidden" name="BaseHash" value="@Model.BaseHash" />
     <partial name="_FormSummary" model="ViewData.ModelState" />
-    <div class="mat-card">
-        <div class="mat-card__body mat-form mc-note-fields">
-            <mc-field name="Title" label="Titel" required value="@Model.Title" maxlength="200" autofocus="@Model.IsNew"
-                      hint="Der Dateiname der Notiz in ThixNote, ohne die Zeichen \ / : * ? < > | und ohne Anführungszeichen." msg-required="Bitte einen Titel eingeben." />
-            <mc-field name="Folder" kind="select" label="Ordner" value="@Model.Folder" options="folders" />
+
+    @* what the note is called and where it lives: title (the file name), folder, kind (only for a new note) *@
+    <div class="mat-card mc-note-props">
+        <div class="mat-card__body mc-note-props__body">
+            <div class="mc-note-props__title">
+                <mc-field name="Title" label="Titel" required value="@Model.Title" maxlength="200" autofocus="@Model.IsNew" placeholder="Wie heißt die Notiz?"
+                          hint="Der Dateiname in ThixNote – ohne \ / : * ? < > | und Anführungszeichen." msg-required="Bitte einen Titel eingeben." />
+            </div>
+            <div class="mc-note-props__folder">
+                <mc-field name="Folder" kind="select" label="Ordner" value="@Model.Folder" options="folders" />
+            </div>
             @if (Model.IsNew)
             {
-                <mc-field name="Kind" kind="radios" label="Art" value="@Model.Kind.ToString()" options="kinds" />
+                <fieldset class="mat-field mc-note-props__kind">
+                    <legend class="mat-label">Art</legend>
+                    <div class="mat-seg" role="radiogroup" aria-label="Art">
+                        <label class="mat-seg__btn mc-seg-radio"><input type="radio" name="Kind" value="Markdown" checked="@(Model.Kind == NoteKind.Markdown)" data-note-kind />@Ui.Icon("file-text")<span>Markdown</span></label>
+                        <label class="mat-seg__btn mc-seg-radio"><input type="radio" name="Kind" value="Text" checked="@(Model.Kind == NoteKind.Text)" data-note-kind />@Ui.Icon("file")<span>Text</span></label>
+                    </div>
+                </fieldset>
             }
             else
             {
@@ -44,11 +68,69 @@
 
     @if (Model.Kind != NoteKind.Protected)
     {
-        <div class="mat-card">
-            <div class="mat-card__body mat-form">
-                <mc-field name="Text" kind="textarea" label="Text" rows="20" value="@Model.Text" full />
+        @if (Model.IsConflict)
+        {
+            <div class="mat-alert mat-alert--warn" role="status">
+                @Ui.Icon("alert")
+                <div class="mat-alert__body">
+                    <strong>Auf einem Gerät geändert</strong>
+                    Während du geschrieben hast, hat ein Gerät diese Notiz geändert. Speichern ersetzt diese Änderung durch deinen Text –
+                    <a href="/Note/View?key=@note!.Key" target="_blank" rel="noopener">die Fassung des Geräts in einem neuen Tab ansehen</a>.
+                </div>
             </div>
-        </div>
+        }
+
+        @* The editor (note-editor.js): marks of Markdown with the toolbar and the keyboard, lists that continue themselves, the preview drawn by the
+           server like the page of the note (beside the text on a wide screen), words and characters, a warning before unsaved text is left. *@
+        <section class="mc-editor@(markdown ? "" : " is-plain")" data-md-editor data-mode="@(markdown ? "markdown" : "text")" aria-label="Text der Notiz">
+            <div class="mc-editor__bar" role="toolbar" aria-label="Formatieren" aria-controls="Text">
+                <div class="mc-editor__tools" data-md-tools>
+                    <button type="button" class="mc-tool" data-md="heading" aria-label="Überschrift" data-tip="Überschrift (Strg+Umschalt+1 … 3)">@Ui.Icon("heading")</button>
+                    <button type="button" class="mc-tool" data-md="bold" aria-label="Fett" data-tip="Fett (Strg+B)">@Ui.Icon("bold")</button>
+                    <button type="button" class="mc-tool" data-md="italic" aria-label="Kursiv" data-tip="Kursiv (Strg+I)">@Ui.Icon("italic")</button>
+                    <button type="button" class="mc-tool" data-md="strike" aria-label="Durchgestrichen" data-tip="Durchgestrichen (Strg+Umschalt+X)">@Ui.Icon("strikethrough")</button>
+                    <span class="mc-tool-sep" aria-hidden="true"></span>
+                    <button type="button" class="mc-tool" data-md="ul" aria-label="Liste" data-tip="Liste (Strg+Umschalt+8)">@Ui.Icon("list")</button>
+                    <button type="button" class="mc-tool" data-md="ol" aria-label="Nummerierte Liste" data-tip="Nummerierte Liste (Strg+Umschalt+7)">@Ui.Icon("list-ordered")</button>
+                    <button type="button" class="mc-tool" data-md="task" aria-label="Aufgabe" data-tip="Aufgabe (Strg+Umschalt+9)">@Ui.Icon("list-checks")</button>
+                    <button type="button" class="mc-tool" data-md="quote" aria-label="Zitat" data-tip="Zitat">@Ui.Icon("quote")</button>
+                    <span class="mc-tool-sep" aria-hidden="true"></span>
+                    <button type="button" class="mc-tool" data-md="link" aria-label="Link" data-tip="Link (Strg+K)">@Ui.Icon("link")</button>
+                    <button type="button" class="mc-tool" data-md="code" aria-label="Code" data-tip="Code (Strg+E)">@Ui.Icon("code")</button>
+                    <button type="button" class="mc-tool mc-tool--wide" data-md="codeblock" aria-label="Codeblock" data-tip="Codeblock">@Ui.Icon("code-block")</button>
+                    <button type="button" class="mc-tool mc-tool--wide" data-md="table" aria-label="Tabelle" data-tip="Tabelle">@Ui.Icon("table")</button>
+                    <button type="button" class="mc-tool mc-tool--wide" data-md="rule" aria-label="Trennlinie" data-tip="Trennlinie">@Ui.Icon("separator")</button>
+                </div>
+                <div class="mat-seg mc-editor__modes" role="group" aria-label="Ansicht" data-md-modes>
+                    <button type="button" class="mat-seg__btn" data-md-mode="write" aria-pressed="true">@Ui.Icon("edit")<span>Schreiben</span></button>
+                    <button type="button" class="mat-seg__btn mc-editor__split" data-md-mode="split" aria-pressed="false">@Ui.Icon("columns")<span>Geteilt</span></button>
+                    <button type="button" class="mat-seg__btn" data-md-mode="preview" aria-pressed="false">@Ui.Icon("eye")<span>Vorschau</span></button>
+                </div>
+            </div>
+
+            <div class="mc-editor__panes" data-md-panes>
+                <div class="mc-editor__write">
+                    <label class="mat-sr-only" for="Text">Text</label>
+                    <textarea class="mc-editor__input@(textError is null ? "" : " is-invalid")" id="Text" name="Text" spellcheck="true" autocomplete="off"
+                              placeholder="@(markdown ? "Schreib los … # Überschrift, - Liste, **fett**" : "Schreib los …")"
+                              aria-invalid="@(textError is null ? "false" : "true")" aria-describedby="note-status@(textError is null ? "" : " Text-error")"
+                              autofocus="@(!Model.IsNew)" data-md-input>@Model.Text</textarea>
+                </div>
+                <div class="mc-editor__preview" data-md-preview hidden>
+                    <div class="mc-markdown mc-paper__body" data-md-preview-body aria-live="polite"></div>
+                </div>
+            </div>
+
+            <div class="mc-editor__status" id="note-status">
+                <span data-md-count></span>
+                <span class="mc-editor__state" data-md-state></span>
+                <span class="mc-editor__keys"><kbd>Strg</kbd>+<kbd>S</kbd> speichert</span>
+            </div>
+        </section>
+        @if (textError is not null)
+        {
+            <span class="mat-error mc-editor__error" id="Text-error" aria-live="polite">@textError</span>
+        }
     }
     else
     {
@@ -60,3 +142,10 @@
 
     <mc-buttons save="@(Model.IsNew ? "Anlegen" : "Speichern")" save-icon="@(Model.IsNew ? "plus" : "save")" back="@back" />
 </form>
+
+@section Scripts {
+    @if (Model.Kind != NoteKind.Protected)
+    {
+        <script src="~/_content/MatCloud.Apps.Note/js/note-editor.js" asp-append-version="true"></script>
+    }
+}

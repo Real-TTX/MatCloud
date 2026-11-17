@@ -15,7 +15,7 @@
             @foreach (var a in Model.Apps)
             {
                 <tr>
-                    <td data-label="App" class="mat-table__primary"><div class="mat-table__name">@Ui.Icon(a.App.Icon)<span>@a.App.Name<small>@a.App.Description</small></span></div></td>
+                    <td data-label="App" class="mat-table__primary"><div class="mat-table__name">@AppBrands.Of(a.App.Id).Image(24, "mc-table-logo")<span>@a.App.Name<small>@a.App.Description</small></span></div></td>
                     <td data-label="Art"><span class="mat-pill @(a.App.HasModule ? "mat-pill--accent" : "mat-pill--plain")">@a.App.KindText</span></td>
                     <td data-label="Status">@if (a.App.IsEnabled) { <span class="mat-pill mat-pill--ok">An</span> } else { <span class="mat-pill mat-pill--warn">Aus</span> }</td>
                     <td data-label="Geräte" class="mat-num mat-mono">@a.Devices</td>

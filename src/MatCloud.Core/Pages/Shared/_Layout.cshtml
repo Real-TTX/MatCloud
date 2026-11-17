@@ -16,9 +16,11 @@
     var areas = Menu.Areas(Me.IsAdmin, await AppService.EnabledAppsAsync(Db, Context.RequestAborted));
     var area = Menu.AreaOf(path);
     var current = areas.FirstOrDefault(a => a.Id == area) ?? areas[0];
+    // the pages of an app module wear the brand of their app: its logo and name above the menu, its colour (data-app), its favicon (_Head)
+    var brand = AppBrands.ForPath(path);
 }
 <!DOCTYPE html>
-<html lang="de" data-app="@Ui.AppId" data-dlg-ok="OK" data-dlg-cancel="Abbrechen" data-dlg-close="Schließen" data-dlg-confirm="Bitte bestätigen" data-dlg-notice="Hinweis" data-dlg-input="Eingabe" data-copied="Kopiert" data-msg-required="Bitte ausfüllen." data-msg-type="Bitte einen gültigen Wert eingeben." @Html.Raw(themeAttr)>
+<html lang="de" data-app="@brand.DataApp" data-dlg-ok="OK" data-dlg-cancel="Abbrechen" data-dlg-close="Schließen" data-dlg-confirm="Bitte bestätigen" data-dlg-notice="Hinweis" data-dlg-input="Eingabe" data-copied="Kopiert" data-msg-required="Bitte ausfüllen." data-msg-type="Bitte einen gültigen Wert eingeben." @Html.Raw(themeAttr)>
 <head>
     <partial name="_Head" model="title" />
 </head>
@@ -29,10 +31,24 @@
     <div class="mat-app">
         <aside class="mat-nav" id="mat-nav">
             <div class="mat-nav__brand">
-                <a class="mc-brand" href="/" aria-label="MatCloud – zur Übersicht">
-                    @Ui.Logo()
-                    <span class="mc-brand__name">Mat<span>Cloud</span></span>
-                </a>
+                @if (brand.IsCloud)
+                {
+                    <a class="mc-brand" href="/" aria-label="MatCloud – zur Übersicht">
+                        @Ui.Logo()
+                        <span class="mc-brand__name">Mat<span>Cloud</span></span>
+                    </a>
+                }
+                else
+                {
+                    @* an app: its logo and word mark, MatCloud small below it (a link back to the overview) *@
+                    <div class="mc-brand mc-brand--app">
+                        <a class="mc-brand__logo" href="@brand.Home" aria-label="@brand.Name – Start">@brand.Image(36)</a>
+                        <span class="mc-brand__text">
+                            <a class="mc-brand__name" href="@brand.Home"><span class="mc-brand__word">@brand.Prefix<span>@brand.Suffix</span></span></a>
+                            <a class="mc-brand__home" href="/">@Ui.Icon("cloud")<span>MatCloud</span></a>
+                        </span>
+                    </div>
+                }
                 <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-nav__close" data-nav-close aria-label="Menü schließen">@Ui.Icon("x")</button>
             </div>
 
@@ -44,7 +60,7 @@
             <div class="mat-nav__foot">
                 <div class="mat-nav__switch mat-nav__switch--foot">
                     <button type="button" class="mat-switcher" data-menu-toggle="nav-switch-menu" data-menu-place="top" aria-haspopup="menu" aria-expanded="false">
-                        <span class="mat-switcher__icon">@Ui.Icon(current.Icon)</span>
+                        <span class="mat-switcher__icon@(current.Logo is null ? "" : " mc-switcher__logo")">@if (current.Logo is null) { @Ui.Icon(current.Icon) } else { <img src="@current.Logo" alt="" width="30" height="30" /> }</span>
                         <span class="mat-switcher__text"><small data-nav-label="Menü">Menü</small><span class="mat-switcher__name">@current.Title</span></span>
                         @Ui.Icon("chevron-up", "mat-switcher__chev")
                         <span class="mat-switcher__dot" hidden></span>
@@ -127,7 +143,7 @@
         @foreach (var a in areas)
         {
             <a class="mat-menu__item" href="@a.Href" role="menuitemradio" aria-checked="@(a.Id == current.Id ? "true" : "false")" data-nav-set="@a.Id" data-nav-title="@a.Title">
-                @Ui.Icon(a.Icon)<span>@a.Title</span>
+                @if (a.Logo is null) { @Ui.Icon(a.Icon) } else { <img class="mc-menu-logo" src="@a.Logo" alt="" width="18" height="18" /> }<span>@a.Title</span>
                 @Ui.Icon("check", "mat-menu__check")
             </a>
         }

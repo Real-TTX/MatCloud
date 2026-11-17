@@ -3,8 +3,11 @@ using MatCloud.Core.Modules;
 
 namespace MatCloud.Core.Web;
 
-/// <summary>One menu of the switcher at the foot of the menu (MatDesign SHELL-15); <see cref="Partial"/> draws its entries.</summary>
-public sealed record MenuArea(string Id, string Title, string Icon, string Href, string Partial);
+/// <summary>
+/// One menu of the switcher at the foot of the menu (MatDesign SHELL-15); <see cref="Partial"/> draws its entries. The menu of an app module is the app:
+/// its name and its logo (<see cref="Logo"/>, instead of the icon).
+/// </summary>
+public sealed record MenuArea(string Id, string Title, string Icon, string Href, string Partial, string? Logo = null);
 
 /// <summary>
 /// The menus: MatCloud itself (overview, apps, devices), one per app module that is switched on (ThixClip: the clipboard), the account and, for an
@@ -23,7 +26,8 @@ public static class Menu
         {
             if (CloudModules.Find(app.Id) is { } module)
             {
-                areas.Add(new MenuArea(module.AppId, module.MenuTitle, module.Icon, module.Home, module.MenuPartial));
+                var brand = AppBrands.Of(module.AppId);
+                areas.Add(new MenuArea(module.AppId, brand.Name, module.Icon, module.Home, module.MenuPartial, brand.Logo));
             }
         }
 

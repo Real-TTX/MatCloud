@@ -111,6 +111,8 @@
           plain.value = text;
           unlockForm.hidden = true;
           editor.hidden = false;
+          // the editor (note-editor.js) counts from here and warns before this text is left unsaved
+          plain.dispatchEvent(new CustomEvent('note:loaded'));
           // while the note is open, its own buttons (save, lock) are the ones that count
           var actions = document.querySelector('[data-note-actions]');
           if (actions) { actions.hidden = true; }

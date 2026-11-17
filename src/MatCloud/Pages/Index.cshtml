@@ -12,10 +12,10 @@
     @foreach (var app in Model.Apps)
     {
         var href = app.App.Home ?? $"/Apps/Detail?id={app.App.Id}";
-        <a class="mat-card mc-app" href="@href">
+        <a class="mat-card mc-app" href="@href" data-app="@AppBrands.Of(app.App.Id).DataApp">
             <div class="mat-card__body">
                 <div class="mc-app__head">
-                    <span class="mc-app__icon">@Ui.Icon(app.App.Icon)</span>
+                    @AppBrands.Of(app.App.Id).Image(44, "mc-app__logo")
                     <div>
                         <h2 class="mc-app__name">@app.App.Name</h2>
                         <p class="mat-muted">@app.App.Description</p>

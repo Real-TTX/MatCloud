@@ -156,4 +156,36 @@ public sealed class NoteTests
         Assert.Null(NoteService.CleanFolder("Arbeit/Pro*jekte"));
         Assert.Equal("Termine morgen", NoteService.Preview("\n# Termine morgen\nmehr"));
     }
+
+    [Fact]
+    public void The_card_of_a_note_shows_its_first_lines_as_plain_text()
+    {
+        const string text = "# Plan\n\nDie **wichtigsten** Dinge für _diese_ Woche:\n\n- [x] [MatCloud](https://cloud.rltx.de) ausrollen\n1. `Code` lesen\n\n| Tag | Was |\n| --- | --- |\n| Montag | Planung |\n\n---\n```\ndocker compose up\n```";
+        Assert.Equal(
+            ["Die wichtigsten Dinge für diese Woche:", "MatCloud ausrollen", "Code lesen", "Tag · Was", "Montag · Planung"],
+            NoteMarkdown.PlainLines(text, "Plan", 5, 500));
+        Assert.Equal(["Die wichtigsten…"], NoteMarkdown.PlainLines(text, "Plan", 5, 20));
+        Assert.Equal("Dunkles Logo", NoteService.Preview("Dunkles Logo\nzweite Zeile"));
+        Assert.Equal(3, NoteService.CountWords("Milch, Brot –\n# Kaffee"));
+    }
+
+    [Fact]
+    public void Markdown_is_drawn_without_html_of_its_own_and_without_the_heading_that_repeats_the_title()
+    {
+        var html = NoteMarkdown.ToHtml("# Plan\n\n<script>alert(1)</script>\n\n- [ ] offen\n\n[Link](https://example.com)", "Plan");
+        Assert.DoesNotContain("<h1", html);
+        Assert.DoesNotContain("<script", html);
+        Assert.Contains("type=\"checkbox\"", html);
+        Assert.Contains("rel=\"noopener noreferrer\"", html);
+        Assert.Contains("<h1", NoteMarkdown.ToHtml("# Anderes\n\nText", "Plan"));
+    }
+
+    [Fact]
+    public void The_preview_of_the_editor_is_only_for_the_browser_of_the_account()
+    {
+        var browser = new Actor(1, false);
+        Assert.Contains("<strong>fett</strong>", NoteService.Render(browser, "**fett**", "Titel").Value);
+        Assert.Equal("Text", NoteService.Render(browser, new string('x', NoteService.MaxContentLength + 1), null).Field);
+        Assert.Throws<NotAllowedException>(() => NoteService.Render(new Actor(1, false, 7, "ANNA-PC", CloudApps.Note), "x", null));
+    }
 }

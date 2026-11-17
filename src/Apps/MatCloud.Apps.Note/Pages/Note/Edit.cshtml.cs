@@ -34,6 +34,9 @@ public sealed class EditModel : AppPageModel
 
     public bool IsNew => Note is null;
 
+    /// <summary>A device changed the note while it was open here (the next save replaces that change).</summary>
+    public bool IsConflict { get; private set; }
+
     public async Task<IActionResult> OnGetAsync()
     {
         if (!await LoadAsync())
@@ -64,6 +67,14 @@ public sealed class EditModel : AppPageModel
         if (!outcome.Ok)
         {
             await LoadAsync();
+            if (Note is { } current && outcome.Field == "Text" && !string.IsNullOrEmpty(BaseHash) && BaseHash != current.Hash)
+            {
+                // a device changed the note meanwhile: the text of the person stays on the page, and saving again replaces the device's change on purpose
+                BaseHash = current.Hash;
+                ModelState.Remove(nameof(BaseHash));
+                IsConflict = true;
+            }
+
             AddError(outcome.Field, outcome.Error);
             return Page();
         }

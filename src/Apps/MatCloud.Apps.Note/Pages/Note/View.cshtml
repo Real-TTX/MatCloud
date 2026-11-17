@@ -2,8 +2,10 @@
 @model MatCloud.Apps.Note.Pages.Note.ViewModel
 @{
     var note = Model.Note;
+    var locked = note.Kind == NoteKind.Protected;
     ViewData["Title"] = note.Title;
-    ViewData["PageSub"] = $"{note.KindName}{(note.Folder.Length > 0 ? " · " + note.Folder : "")} · geändert {Dates.Stamp(note.UpdatedDate)} {note.Where}";
+    ViewData["OwnHead"] = true;
+    ViewData["Width"] = "wide";
     var crumbs = new List<(string, string?)> { ("Notizen", "/Note") };
     if (note.Folder.Length > 0)
     {
@@ -15,25 +17,45 @@
 }
 
 @section TopActions {
+    <a class="mat-btn mat-btn--secondary mat-btn--icon" href="/Note/Edit?key=@note.Key" aria-label="@(locked ? "Umbenennen" : "Bearbeiten")" data-tip="@(locked ? "Umbenennen" : "Bearbeiten (E)")" data-note-edit>@Ui.Icon("edit")</a>
     <partial name="_NoteTopActions" />
 }
 
-@if (note.Kind == NoteKind.Protected)
+@* The head of the note: its title, then where it lives and when it changed (the folder is a link to its notes). *@
+<div class="mat-page__head mc-note-head">
+    <div class="mat-page__title">
+        <h1>@note.Title</h1>
+        <p class="mc-note-head__meta">
+            <span class="mat-pill mat-pill--plain mc-pill">@Ui.Icon(NoteService.KindIcon(note.Kind))@note.KindName</span>
+            @if (note.Folder.Length > 0)
+            {
+                <a class="mat-pill mat-pill--plain mc-pill mc-pill--link" href="/Note?folder=@Uri.EscapeDataString(note.Folder)">@Ui.Icon("folder")@note.Folder</a>
+            }
+            <span class="mc-note-head__time">@Ui.Icon("clock")geändert @Dates.Stamp(note.UpdatedDate) @note.Where</span>
+            @if (!locked)
+            {
+                <span class="mc-note-head__time">@(note.Words == 1 ? "1 Wort" : $"{Ui.Number(note.Words)} Wörter")</span>
+            }
+        </p>
+    </div>
+</div>
+
+@if (locked)
 {
     @* A protected note: decrypted only here in the browser (note-crypt.js); the password and the text never go to the server. *@
     <div class="mc-protected" data-note-crypt data-bytes="@note.Bytes">
-        <form class="mat-card mat-form" data-note-unlock novalidate>
-            <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("lock")Geschützte Notiz</h2></div>
-            <div class="mat-card__body mat-form">
-                <p class="mat-muted">Diese Notiz ist mit einem Kennwort verschlüsselt. Sie wird nur hier im Browser entsperrt – das Kennwort und der Text gehen nicht an den Server.</p>
-                <div class="mat-field">
+        <form class="mat-card mc-unlock" data-note-unlock novalidate>
+            <div class="mat-card__body mc-unlock__body">
+                <span class="mc-unlock__icon">@Ui.Icon("lock")</span>
+                <h2 class="mc-unlock__title">Mit Kennwort geschützt</h2>
+                <p class="mat-muted">Die Notiz wird nur hier im Browser entsperrt – das Kennwort und der Text gehen nicht an den Server.</p>
+                <div class="mat-field mc-unlock__field">
                     <label class="mat-label" for="note-password">Kennwort</label>
-                    <input class="mat-input" id="note-password" type="password" autocomplete="current-password" required data-note-password />
+                    <input class="mat-input" id="note-password" type="password" autocomplete="current-password" required autofocus data-note-password />
                     <span class="mat-hint mc-crypt-error" data-note-error role="alert" hidden></span>
                 </div>
-                <div class="mat-btn-row mat-btn-row--plain">
+                <div class="mat-btn-row mat-btn-row--plain mc-unlock__buttons">
                     <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("key")<span>Entsperren</span></button>
-                    <a class="mat-btn mat-btn--secondary" href="/Note">@Ui.Icon("back")<span>Zurück</span></a>
                 </div>
             </div>
         </form>
@@ -41,13 +63,22 @@
         <form method="post" asp-page-handler="Protected" asp-route-key="@note.Key" class="mat-form" data-note-editor hidden>
             <input type="hidden" name="Bytes" data-note-bytes />
             <input type="hidden" name="BaseHash" value="@note.Hash" />
-            <div class="mat-card">
-                <div class="mat-card__body">
-                    <label class="mat-label" for="note-plain">Text</label>
-                    <textarea class="mat-input mc-note-editor" id="note-plain" rows="18" spellcheck="true" data-note-plain></textarea>
-                    <span class="mat-hint">Beim Speichern wird die Notiz hier im Browser wieder mit demselben Kennwort verschlüsselt.</span>
+            <section class="mc-editor is-plain" data-md-editor data-mode="text" aria-label="Text der geschützten Notiz">
+                <div class="mc-editor__bar mc-editor__bar--note">
+                    <span class="mc-editor__unlocked">@Ui.Icon("key")Entsperrt – nur in diesem Browser</span>
                 </div>
-            </div>
+                <div class="mc-editor__panes">
+                    <div class="mc-editor__write">
+                        <label class="mat-sr-only" for="note-plain">Text</label>
+                        <textarea class="mc-editor__input" id="note-plain" spellcheck="true" autocomplete="off" aria-describedby="note-status" data-note-plain data-md-input></textarea>
+                    </div>
+                </div>
+                <div class="mc-editor__status" id="note-status">
+                    <span data-md-count></span>
+                    <span class="mc-editor__state" data-md-state></span>
+                    <span class="mc-editor__keys">Wird beim Speichern hier wieder verschlüsselt · <kbd>Strg</kbd>+<kbd>S</kbd></span>
+                </div>
+            </section>
             <div class="mat-btn-row">
                 <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("lock")<span>Verschlüsselt speichern</span></button>
                 <a class="mat-btn mat-btn--secondary" href="/Note/View?key=@note.Key">@Ui.Icon("x")<span>Sperren</span></a>
@@ -57,11 +88,19 @@
 }
 else
 {
-    <article class="mat-card">
-        <div class="mat-card__body mc-note-body">
+    @* the note as a page: Markdown drawn (its first heading, when it only repeats the title, is left out), text as it is *@
+    <article class="mc-paper" aria-label="@note.Title">
+        <div class="mc-paper__body@(Model.Html is null ? "" : " mc-markdown")">
             @if (Model.Html is not null)
             {
-                <div class="mc-markdown">@Html.Raw(Model.Html)</div>
+                @if (string.IsNullOrWhiteSpace(Model.Html))
+                {
+                    <p class="mc-editor__empty">Diese Notiz ist noch leer.</p>
+                }
+                else
+                {
+                    @Html.Raw(Model.Html)
+                }
             }
             else
             {
@@ -73,25 +112,30 @@ else
 
 <form method="post" asp-page-handler="Delete" asp-route-key="@note.Key" data-note-actions>
     <div class="mat-btn-row mc-btn-row">
-        <a class="mat-btn mat-btn--primary" href="/Note/Edit?key=@note.Key">@Ui.Icon("edit")<span>@(note.Kind == NoteKind.Protected ? "Umbenennen" : "Bearbeiten")</span></a>
-        @if (note.Kind != NoteKind.Protected)
+        <a class="mat-btn mat-btn--primary" href="/Note/Edit?key=@note.Key">@Ui.Icon("edit")<span>@(locked ? "Umbenennen" : "Bearbeiten")</span></a>
+        @if (!locked)
         {
             <button type="button" class="mat-btn mat-btn--secondary mc-btn-collapse" data-copy="#note-source" aria-label="Text kopieren" data-tip="Text kopieren">@Ui.Icon("copy")<span>Kopieren</span></button>
         }
-        <a class="mat-btn mat-btn--secondary mc-btn-collapse" href="/Note" aria-label="Zurück" data-tip="Zurück">@Ui.Icon("back")<span>Zurück</span></a>
+        <a class="mat-btn mat-btn--secondary mc-btn-collapse" href="@(note.Folder.Length > 0 ? "/Note?folder=" + Uri.EscapeDataString(note.Folder) : "/Note")" aria-label="Zurück" data-tip="Zurück">@Ui.Icon("back")<span>Zurück</span></a>
         <span class="mat-btn-row__spacer"></span>
         <button type="submit" class="mat-btn mat-btn--danger mc-btn-collapse" aria-label="Löschen" data-tip="Löschen" data-confirm="Diese Notiz löschen? ThixNote legt sie auf deinen Geräten in den Papierkorb." data-confirm-ok="Löschen" data-confirm-danger>@Ui.Icon("trash")<span>Löschen</span></button>
     </div>
 </form>
 
-@if (note.Kind != NoteKind.Protected)
+@if (!locked)
 {
     <textarea id="note-source" class="mat-sr-only" readonly aria-hidden="true" tabindex="-1">@note.Content</textarea>
 }
 
 @section Scripts {
-    @if (note.Kind == NoteKind.Protected)
+    @if (locked)
     {
+        <script src="~/_content/MatCloud.Apps.Note/js/note-editor.js" asp-append-version="true"></script>
         <script src="~/_content/MatCloud.Apps.Note/js/note-crypt.js" asp-append-version="true"></script>
+    }
+    else
+    {
+        <script src="~/_content/MatCloud.Apps.Note/js/note-view.js" asp-append-version="true"></script>
     }
 }

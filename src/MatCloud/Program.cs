@@ -202,6 +202,8 @@ foreach (var module in CloudModules.All)
     module.MapEndpoints(app);
 }
 
+AppManifests.Map(app);
+
 app.MapMatPlatform();
 app.MapRazorPages();
 

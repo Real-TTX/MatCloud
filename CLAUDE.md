@@ -72,7 +72,8 @@ src/MatCloud.Core           (Razor class library) what everything stands on:
                             account, advisory locks, long polls), SystemService (public address, numbers, housekeeping), Passwords, Actor/Outcome
   Api/DeviceEndpoints       /api/v1: sign-in, link, account, the general sync; ForApp(app, id) = the guarded group for a module's device routes
   Web/                      CurrentUser, CookieSignIn, AppPageModel, Menu (menus of the platform and the modules), Ui (icons, logo, bytes), ListModels
-                            (toolbar, pager), Dates, Assets (sprites), AppInfo (version)
+                            (toolbar, pager), Dates, Assets (sprites), AppInfo (version), AppBrands (name, word mark, logo, favicon, data-app of every
+                            Thix app: the pages of a module wear the brand of their app), AppManifests (/<Home>/manifest.webmanifest per module)
   Controls/                 one code base per control: <mc-field>, <mc-buttons>, <mc-table>, <mc-tabs>/<mc-tab>
   Pages/Shared/             the layout (menu switcher with one menu per module), _LayoutAuth, _Head, _Menu{Home,Account,Admin}, _Toolbar, _Pager,
                             _FormSummary, _Empty – used by the host's and the modules' pages
@@ -84,8 +85,10 @@ src/Apps/MatCloud.Apps.Clip (Razor class library) the module ThixClip: ClipModul
 src/Apps/MatCloud.Apps.Note (Razor class library) the module ThixNote, no tables: NoteModule (UsesGeneralSync); Business/NoteService (the notes on the
                             items of the general sync in ThixNote's format: collection notes {path, content | bytes}, hash = SHA-256 hex of the text or
                             the bytes, collection folders; stale texts refused by the hash the page opened with); Api/NoteEndpoints (/live/note);
-                            Pages/Note (Index, View: Markdig without HTML, Edit), Pages/Shared/_NoteMenu (folders); wwwroot/js note-live.js,
-                            note-crypt.js ("QNSEC1" | iterations | salt | nonce | tag | ciphertext, PBKDF2-SHA256 + AES-256-GCM, checked before it is sent)
+                            Business/NoteMarkdown (Markdig without HTML, the first heading that repeats the title left out; plain lines for cards);
+                            Pages/Note (Index: cards, View: the note as a page, Edit: the editor), Pages/Shared/_NoteMenu (folders); wwwroot/js
+                            note-live.js, note-editor.js (toolbar, keys, lists that continue, preview from POST /live/note/preview, Strg+S, a warning
+                            before unsaved text is left), note-view.js (E edits), note-crypt.js ("QNSEC1" | iterations | salt | nonce | tag | ciphertext, PBKDF2-SHA256 + AES-256-GCM, checked before it is sent)
 src/MatCloud                the host: Program (composition: modules, MatPlatform, MatIdentity, cookie, rate limit, body limit), Modules.cs (the list of
                             modules), Infrastructure (health check, migrations, design-time factory, setup redirect, forced password change, security
                             headers, housekeeping every hour, SeedAdminAsync: MATCLOUD_ADMIN_PASSWORD makes the first administrator), Platform/ (MatCloudPlatform: the MatApiDefinition, state, configure, actions, health;
@@ -115,7 +118,11 @@ docs/                       ARCHITECTURE.md (platform, modules, sync), CONTRACT.
 - **The contract** (`src/MatCloud.Contract`) changes only backwards-compatibly (new optional fields) or raises `CloudContract.ProtocolVersion`; after
   a change the apps copy it again. A new app id goes into `CloudApps` first.
 - **UI rules (MatUi):** toolbar above lists, actions below, left-aligned, positive to negative, delete with a gap; tabs for areas of one item; colours
-  only from the tokens (`app.css` sets only the accent); icons of the sprite; one `h1`; 390 px without sideways scrolling; texts German.
+  only from the tokens (`app.css` sets only the accents: MatCloud `#0369a1`, ThixClip `#2f6fed`, ThixNote `#c53d30`); icons of the sprite (MatCloud's
+  own, for example the marks of the editor, in `wwwroot/img/app-icons.svg`); one `h1`; 390 px without sideways scrolling; texts German.
+- **Every app looks like itself:** the pages of a module (`/Clip`, `/Note`) wear the brand of their app (`AppBrands`): logo and word mark above the
+  menu with "MatCloud" below it, `<html data-app="thixnote">` (the accent), the tab title "Seite · ThixNote", favicon and manifest. The logos are
+  copies from the apps (`wwwroot/img/apps`, from `ThixClip/branding`, `ThixNote/assets`, …); a new app gets its entry in `AppBrands` and its logo there.
 - Edit text files with the editor tools (Windows PowerShell 5.1 `Get-Content`/`Set-Content` double-encode umlauts).
 
 ## Versioning, branches, CI

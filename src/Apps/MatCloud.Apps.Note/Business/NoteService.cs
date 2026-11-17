@@ -23,6 +23,12 @@ public sealed record NoteItem(
     /// <summary>One line of the text for the list (nothing of a protected note).</summary>
     public string Preview => Content is null ? string.Empty : NoteService.Preview(Content, Title);
 
+    /// <summary>The first lines of the text for the card of the list, as plain text (nothing of a protected note).</summary>
+    public IReadOnlyList<string> Excerpt => Content is null ? [] : NoteMarkdown.PlainLines(Content, Title, 5, 320);
+
+    /// <summary>How many words the text has (0 for a protected note).</summary>
+    public int Words => Content is null ? 0 : NoteService.CountWords(Content);
+
     public string KindName => NoteService.KindName(Kind);
 
     /// <summary>Where it was written last: "im Browser" or "auf ANNA-PC" (empty when unknown).</summary>
@@ -186,7 +192,7 @@ public static class NoteService
 
             if (existing is not null && content != existing.Content && !string.IsNullOrEmpty(input.BaseHash) && input.BaseHash != existing.Hash)
             {
-                return Outcome<string>.Fail("Die Notiz wurde inzwischen auf einem anderen Gerät geändert. Bitte neu laden; dein Text ist unten noch zu sehen.", "Text");
+                return Outcome<string>.Fail("Die Notiz wurde inzwischen auf einem anderen Gerät geändert. Dein Text ist noch da: Speichern ersetzt die Änderung des Geräts durch ihn.", "Text");
             }
         }
 
@@ -280,12 +286,23 @@ public static class NoteService
     /// repeats the title is skipped.
     /// </summary>
     public static string Preview(string text, string? title = null, int max = 140)
+        => NoteMarkdown.PlainLines(text, title, 1, max).FirstOrDefault() ?? string.Empty;
+
+    /// <summary>The words of a text (anything between white space).</summary>
+    public static int CountWords(string text)
+        => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Count(w => w.Any(char.IsLetterOrDigit));
+
+    /// <summary>
+    /// The preview of the editor: the Markdown the person is writing, drawn like the page of the note. Only for the browser of the account, and only as long
+    /// as a note may be.
+    /// </summary>
+    public static Outcome<string> Render(Actor actor, string? markdown, string? title)
     {
-        var line = text.Split('\n')
-            .Select(l => l.Trim().TrimStart('#', '-', '*', '>', ' ').Replace("**", string.Empty, StringComparison.Ordinal)
-                .Replace("__", string.Empty, StringComparison.Ordinal).Replace("`", string.Empty, StringComparison.Ordinal).Trim())
-            .FirstOrDefault(l => l.Length > 0 && !string.Equals(l, title, StringComparison.CurrentCultureIgnoreCase)) ?? string.Empty;
-        return line.Length <= max ? line : line[..max] + "…";
+        Require(actor);
+        markdown ??= string.Empty;
+        return markdown.Length > MaxContentLength
+            ? Outcome<string>.Fail($"Die Notiz ist zu lang (höchstens {MaxContentLength / 1000:N0} Tausend Zeichen).", "Text")
+            : Outcome<string>.Success(NoteMarkdown.ToHtml(markdown, title));
     }
 
     /// <summary>What is wrong with the title of a note (a file name on every computer), or null.</summary>

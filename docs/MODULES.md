@@ -23,6 +23,15 @@ A Razor class library under `src/Apps/MatCloud.Apps.<Name>` that references `Mat
 | `DeleteDataAsync` | removes everything an account keeps in the app (account deleted, or "Daten in der Cloud löschen") |
 | `UsageAsync`, `TotalUsageAsync` | items, size and last change for one account / for all (the overview, the apps, the administration) |
 
+## The look of the app
+
+The pages under `Home` wear the brand of their app, not MatCloud's (`MatCloud.Core/Web/AppBrands.cs`): the app's logo and word mark above the menu
+("Thix**Note**", "MatCloud" small below it, a link back to the overview), its logo and name in the switcher, `<html data-app="thixnote">` – so buttons,
+the current menu item and links take the app's accent (`app.css`, `[data-app="thixnote"] { --mat-app-accent: … }`) –, "Notizen · ThixNote" as the title
+of the tab, its favicon, and `Home/manifest.webmanifest` (`AppManifests`), so that the app can be installed on its own (it opens at `/Note`). A new
+module adds its app to `AppBrands`, copies its logos from the app's repository to `src/MatCloud/wwwroot/img/apps` and sets its accent in `app.css`
+(white text on it at least 4.5:1; ThixNote's `#DB4C3F` reaches 4.1:1, so the web uses `#C53D30`).
+
 ## Steps for a new module
 
 1. Add the app id to `CloudApps` in `src/MatCloud.Contract` (and copy the contract into the app).

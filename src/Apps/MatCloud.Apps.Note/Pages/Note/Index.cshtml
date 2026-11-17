@@ -7,6 +7,8 @@
         ? new List<(string, string?)> { ("Notizen", null), ("Alle Notizen", null) }
         : new List<(string, string?)> { ("Notizen", "/Note"), (Model.Folder, null) };
     var newHref = Model.Folder is null ? "/Note/Edit" : "/Note/Edit?folder=" + Uri.EscapeDataString(Model.Folder);
+    List<string> subfolders = Model.Folder is null ? [] : Model.Result.Folders
+        .Where(f => f.StartsWith(Model.Folder + "/", StringComparison.OrdinalIgnoreCase) && !f[(Model.Folder.Length + 1)..].Contains('/')).ToList();
 }
 
 @section TopActions {
@@ -18,6 +20,17 @@
     <partial name="_Toolbar" model="Model.Toolbar" />
 
     <div class="mc-live-region" data-live-region>
+        @if (subfolders.Count > 0)
+        {
+            @* the folders inside this folder (the menu shows the top level) *@
+            <nav class="mc-subfolders" aria-label="Ordner in @Model.Folder">
+                @foreach (var f in subfolders)
+                {
+                    <a class="mc-subfolder" href="/Note?folder=@Uri.EscapeDataString(f)">@Ui.Icon("folder")<span>@f[(f.LastIndexOf('/') + 1)..]</span></a>
+                }
+            </nav>
+        }
+
         @if (Model.Result.Items.Count == 0)
         {
             var first = Model.Result.Total == 0;
@@ -28,27 +41,36 @@
         }
         else
         {
-            <ul class="mat-itemlist mat-itemlist--inset mc-notes" aria-label="Notizen">
+            @* the notes as cards, like the sheets of a notebook: title, the first lines of the text, folder and time *@
+            <ul class="mc-note-grid" aria-label="Notizen">
                 @foreach (var n in Model.Result.Items)
                 {
-                    <li class="mat-item mat-item--top mc-note">
-                        <a class="mat-item__main" href="/Note/View?key=@n.Key">
-                            <span class="mat-item__lead"><span class="mat-item__tile">@Ui.Icon(NoteService.KindIcon(n.Kind))</span></span>
-                            <span class="mat-item__body">
-                                <span class="mat-item__title">@n.Title</span>
-                                @if (n.Preview.Length > 0)
-                                {
-                                    <span class="mat-item__text mat-item__text--clamp">@n.Preview</span>
-                                }
-                                <span class="mat-item__text mc-meta">
-                                    @if (n.Kind == NoteKind.Protected)
-                                    {
-                                        <span class="mat-pill mat-pill--plain mc-pill">@Ui.Icon("lock")Geschützt</span>
-                                    }
-                                    <span>@(n.Folder.Length > 0 ? n.Folder + " · " : "")@n.KindName@(n.Source is null ? "" : " · " + (n.Source == "Web" ? "Browser" : n.Source))</span>
-                                </span>
+                    var excerpt = n.Excerpt;
+                    <li class="mc-note-card@(n.Kind == NoteKind.Protected ? " mc-note-card--locked" : "")">
+                        <a class="mc-note-card__link" href="/Note/View?key=@n.Key">
+                            <span class="mc-note-card__head">
+                                <span class="mc-note-card__title">@n.Title</span>
+                                <span class="mc-note-card__kind" title="@n.KindName">@Ui.Icon(NoteService.KindIcon(n.Kind))<span class="mat-sr-only">@n.KindName</span></span>
                             </span>
-                            <span class="mat-item__end"><span class="mat-item__note">@Dates.Short(n.UpdatedDate)</span></span>
+                            @if (n.Kind == NoteKind.Protected)
+                            {
+                                <span class="mc-note-card__locked">@Ui.Icon("lock")<span>Mit Kennwort geschützt – entsperren im Browser</span></span>
+                            }
+                            else if (excerpt.Count > 0)
+                            {
+                                <span class="mc-note-card__text">@string.Join("\n", excerpt)</span>
+                            }
+                            else
+                            {
+                                <span class="mc-note-card__text mc-note-card__text--empty">Noch leer</span>
+                            }
+                            <span class="mc-note-card__foot">
+                                @if (n.Folder.Length > 0)
+                                {
+                                    <span class="mc-note-card__folder">@Ui.Icon("folder")<span>@n.Folder</span></span>
+                                }
+                                <span class="mc-note-card__time" title="@Dates.Stamp(n.UpdatedDate) @n.Where">@Dates.Short(n.UpdatedDate)</span>
+                            </span>
                         </a>
                     </li>
                 }

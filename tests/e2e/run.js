@@ -258,15 +258,22 @@ async function signIn(page, who) {
 
     console.log('ThixNote in the browser');
     await page.goto(base + '/Note');
-    await page.waitForSelector('.mc-notes');
+    await page.waitForSelector('.mc-note-grid');
     await shot(page, '40-notes');
-    check((await page.$$eval('.mc-note', (r) => r.length)) >= 4, 'the notes of ThixNote are listed');
+    check((await page.$$eval('.mc-note-card', (r) => r.length)) >= 4, 'the notes of ThixNote are listed');
+    // the pages of the module wear the brand of ThixNote: logo and name above the menu, its colour, its title, its manifest
+    check(await page.getAttribute('html', 'data-app') === 'thixnote' && (await page.title()).endsWith('· ThixNote')
+      && (await page.textContent('.mc-brand__name')).trim() === 'ThixNote' && await page.getAttribute('link[rel=manifest]', 'href') === '/Note/manifest.webmanifest',
+      'the notes wear the brand of ThixNote');
+    const noteManifest = await api('GET', '/Note/manifest.webmanifest');
+    check(noteManifest.status === 200 && noteManifest.data.name === 'ThixNote' && noteManifest.data.start_url === '/Note', 'ThixNote can be installed on its own');
     await page.goto(base + '/Note?folder=Projekte');
-    check((await page.$$eval('.mc-note', (r) => r.length)) === 2, 'a folder shows its notes');
+    check((await page.$$eval('.mc-note-card', (r) => r.length)) === 2, 'a folder shows its notes');
     const projectKey = notes[1].key;
     await page.goto(base + '/Note/View?key=' + projectKey);
     await shot(page, '41-note-markdown');
-    check(await page.$('.mc-markdown table') !== null && await page.$('.mc-markdown h1') !== null, 'Markdown is drawn as a page (headings, tables)');
+    check(await page.$('.mc-markdown table') !== null && await page.$('.mc-markdown blockquote') !== null && await page.$('.mc-markdown h1') === null,
+      'Markdown is drawn as a page (tables, quotes; the heading that repeats the title is left out)');
     await page.goto(base + '/Note/Edit?key=' + projectKey);
     await shot(page, '42-note-edit');
     await page.fill('#Text', '# MatCloud\n\nGeändert im Browser.');
@@ -280,6 +287,39 @@ async function signIn(page, who) {
     await Promise.all([page.waitForNavigation(), page.click('form.mat-form button[type=submit].mat-btn--primary')]);
     const createdNote = (await api('GET', '/api/v1/sync/changes?since=0', noteToken)).data.items.find((i) => i.data && JSON.parse(i.data).path === 'Projekte/Aus dem Browser.md');
     check(!!createdNote, 'a note written in the browser reaches ThixNote');
+
+    // the editor: marks from the toolbar and the keyboard, lists that continue, the preview of the server, Strg+S, undo
+    await page.goto(base + '/Note/Edit?folder=Projekte');
+    await page.fill('#Title', 'Editor');
+    await page.click('#Text');
+    await page.keyboard.type('- Milch');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Brot');
+    check(await page.inputValue('#Text') === '- Milch\n- Brot', 'Enter continues a list');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    check(await page.inputValue('#Text') === '- Milch\n- Brot\n', 'Enter on an empty item ends it');
+    await page.keyboard.type('wichtig');
+    await page.keyboard.down('Shift');
+    for (let i = 0; i < 7; i++) { await page.keyboard.press('ArrowLeft'); }
+    await page.keyboard.up('Shift');
+    await page.keyboard.press('Control+b');
+    check((await page.inputValue('#Text')).endsWith('**wichtig**'), 'Strg+B makes the selection bold');
+    await page.keyboard.press('Control+z');
+    check((await page.inputValue('#Text')).endsWith('\nwichtig'), 'Strg+Z undoes a mark like typing');
+    await page.click('[data-md="heading"]');
+    check((await page.inputValue('#Text')).endsWith('\n# wichtig'), 'the toolbar sets a heading');
+    await page.click('[data-md-mode="preview"]');
+    await page.waitForSelector('[data-md-preview-body] h1', { timeout: 10000 });
+    check(await page.$$eval('[data-md-preview-body] li', (l) => l.length) === 2, 'the preview draws the Markdown like the page');
+    await shot(page, '45-note-editor-preview');
+    await page.click('[data-md-mode="write"]');
+    check((await page.textContent('[data-md-count]')).startsWith('3 Wörter') && (await page.textContent('[data-md-state]')) === 'Nicht gespeichert', 'words are counted, unsaved text is marked');
+    await shot(page, '46-note-editor');
+    await page.click('#Text');
+    await Promise.all([page.waitForNavigation(), page.keyboard.press('Control+s')]);
+    const editorNote = (await api('GET', '/api/v1/sync/changes?since=0', noteToken)).data.items.find((i) => i.data && JSON.parse(i.data).path === 'Projekte/Editor.md');
+    check(!!editorNote && JSON.parse(editorNote.data).content === '- Milch\n- Brot\n# wichtig', 'Strg+S saves the note');
 
     // a protected note: opened and saved only in the browser
     const secretKey = notes[3].key;

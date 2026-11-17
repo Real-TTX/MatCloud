@@ -23,7 +23,8 @@ installed and connected by Mattiverse – or on its own with `docker compose up`
 | **Devices per app** | Every Thix app on every computer is a device of your account; it reads and writes only its own data. Remove one and it stops at once. |
 | **Sign-in in the browser** | The app shows a code and opens MatCloud; you confirm the code – also with an account of MatIdentity. Or sign in with user name and password. |
 | **ThixClip** (module) | The clipboard history of all your computers: texts, links and pictures with their recognised text, searchable, live, favourites and pinned entries, "Verlauf löschen" like a browser, retention per account. |
-| **ThixNote** (module) | The notes of all your computers in the browser: folders, search, Markdown drawn as a page, write, rename, move, delete – every device of ThixNote sees it at once. Protected notes are opened and saved only in your browser with their password; the server never sees their text. |
+| **ThixNote** (module) | The notes of all your computers in the browser, as cards: folders, search, Markdown drawn as a page, write, rename, move, delete – every device of ThixNote sees it at once. A real Markdown editor: toolbar and keys (Strg+B, Strg+K …), lists that continue themselves, a preview beside the text, Strg+S, a warning before unsaved text is left. Protected notes are opened and saved only in your browser with their password; the server never sees their text. |
+| **Every app looks like itself** | `/Clip` is ThixClip, `/Note` is ThixNote: their logo and name at the top of the menu, their colour, their favicon – and each can be installed as an app of its own. |
 | **General sync** | ThixNote (notes), ThixCalendar, ThixTunnel, ThixLauncher: their data the same everywhere – last change wins, deletions travel, nothing is missed (revisions + long poll). The cloud never reads it: protected notes stay encrypted. |
 | **Apps und Daten** | What each app keeps for you, its devices, and "Daten in der Cloud löschen". |
 | **Administration** | Accounts, which apps this cloud serves (switch one off: its devices stop, the data stays), the public address, the Connections of the platform. Administrators never see the data of others. |
@@ -33,6 +34,7 @@ installed and connected by Mattiverse – or on its own with `docker compose up`
 | | |
 |---|---|
 | ![The clipboard history of ThixClip](docs/images/clipboard.png) | ![Connecting a device: compare the code, confirm](docs/images/connect.png) |
+| ![The notes of ThixNote as cards](docs/images/notes-list.png) | ![The Markdown editor: toolbar, the text and its preview side by side](docs/images/note-editor.png) |
 | ![A note of ThixNote, its Markdown drawn as a page](docs/images/notes.png) | ![Administration: the apps](docs/images/admin-apps.png) |
 | ![On a phone, dark](docs/images/phone-dark.png) | |
 

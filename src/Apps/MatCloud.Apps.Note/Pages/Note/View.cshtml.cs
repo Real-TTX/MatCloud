@@ -1,4 +1,3 @@
-using Markdig;
 using MatCloud.Apps.Note.Business;
 using MatCloud.Core.Web;
 using Microsoft.AspNetCore.Mvc;
@@ -11,8 +10,6 @@ namespace MatCloud.Apps.Note.Pages.Note;
 /// </summary>
 public sealed class ViewModel : AppPageModel
 {
-    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
-
     [BindProperty(SupportsGet = true)]
     public string Key { get; set; } = string.Empty;
 
@@ -38,7 +35,7 @@ public sealed class ViewModel : AppPageModel
         Note = outcome.Value!;
         if (Note.Kind == NoteKind.Markdown)
         {
-            Html = Markdown.ToHtml(Note.Content ?? string.Empty, Pipeline);
+            Html = NoteMarkdown.ToHtml(Note.Content ?? string.Empty, Note.Title);
         }
 
         return Page();
