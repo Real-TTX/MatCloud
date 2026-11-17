@@ -178,4 +178,12 @@ public sealed class UnitTests
         Assert.Equal("2,0 GB", Ui.Bytes(2L * 1024 * 1024 * 1024));
         Assert.Equal("512 B", Ui.Bytes(512));
     }
+
+    [Fact]
+    public void AnAppFromBeforeMatCloudIsToldToUpdateItselfAndAnUnknownAppToUpdateTheCloud()
+    {
+        Assert.Contains("App aktualisieren", DeviceService.Problem(new DeviceFacts("", "ANNA-PC", "Windows", "0.1.9"))!.Value.Message);
+        Assert.Contains("MatCloud aktualisieren", DeviceService.Problem(new DeviceFacts("paint", "ANNA-PC", "Windows", "1.0"))!.Value.Message);
+        Assert.Null(DeviceService.Problem(new DeviceFacts(CloudApps.Clip, "ANNA-PC", "Windows", "1.0")));
+    }
 }

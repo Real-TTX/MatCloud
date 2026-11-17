@@ -35,6 +35,12 @@ public static class DeviceService
     /// <summary>What is wrong with the facts a device sends, or null.</summary>
     public static (string Message, string Field)? Problem(DeviceFacts facts)
     {
+        if (string.IsNullOrWhiteSpace(facts.App))
+        {
+            // a version from before MatCloud (it sends no app): the app is too old, not the cloud
+            return ("Diese Version der App kennt die MatCloud noch nicht. Bitte die App aktualisieren.", "app");
+        }
+
         if (!CloudApps.IsKnown(facts.App))
         {
             return ("Diese App kennt die MatCloud nicht. Bitte die MatCloud aktualisieren.", "app");
