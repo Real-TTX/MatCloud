@@ -1,0 +1,17 @@
+@model bool
+@* The menu of the account: general, security, devices. Model: whether it is the menu shown. *@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    var general = path.Equals("/Account", StringComparison.OrdinalIgnoreCase) || path.Equals("/Account/Index", StringComparison.OrdinalIgnoreCase);
+    var security = Menu.Under(path, "/Account/Security");
+    var devices = Menu.Under(path, "/Account/Devices") || Menu.Under(path, "/Account/Device");
+}
+<nav class="mat-nav__scroll" aria-label="Konto" data-nav-panel="@Menu.Account" hidden="@(!Model)">
+    <ul class="mat-nav__list">
+        <li><a class="@Cls(general)" href="/Account" aria-current="@Cur(general)">@Ui.Icon("user")<span>Allgemein</span></a></li>
+        <li><a class="@Cls(security)" href="/Account/Security" aria-current="@Cur(security)">@Ui.Icon("lock")<span>Sicherheit</span></a></li>
+        <li><a class="@Cls(devices)" href="/Account/Devices" aria-current="@Cur(devices)">@Ui.Icon("monitor")<span>Geräte</span></a></li>
+    </ul>
+</nav>

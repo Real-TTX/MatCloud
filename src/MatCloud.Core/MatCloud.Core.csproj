@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    MatCloud.Core: what every part of MatCloud stands on and what the app modules (src/Apps) build on.
+    The database (AppDbContext with the accounts, sessions, devices and the general sync; a module adds its tables through ICloudModule),
+    the business layer of the accounts, devices and the general sync, the device API, the module contract (Modules/), the web helpers,
+    the controls (tag helpers) and the shared pages (layout, menu, toolbar, pager), and the copy of MatPlatform (never edited here).
+  -->
+  <PropertyGroup>
+    <RootNamespace>MatCloud.Core</RootNamespace>
+    <AssemblyName>MatCloud.Core</AssemblyName>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <MatCloudWebUsings>true</MatCloudWebUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.13" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.*" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MatCloud.Contract\MatCloud.Contract.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MatCloud" />
+    <InternalsVisibleTo Include="MatCloud.Tests" />
+  </ItemGroup>
+
+</Project>

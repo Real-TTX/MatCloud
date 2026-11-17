@@ -1,0 +1,38 @@
+@page "/Account/Security"
+@model MatCloud.Pages.Account.SecurityModel
+@{
+    ViewData["Title"] = "Konto";
+    ViewData["PageSub"] = Model.HasPassword ? "Passwort ändern" : "Passwort festlegen";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Konto", "/Account"), ("Sicherheit", null) };
+    ViewData["Width"] = "narrow";
+}
+
+<partial name="_AccountTabs" model="@("security")" />
+
+@if (Model.MustChange)
+{
+    <div class="mat-alert mat-alert--warning" role="status">
+        @Ui.Icon("alert")
+        <div class="mat-alert__body">Dein Passwort wurde von der Administration gesetzt. Bitte wähle jetzt ein eigenes.</div>
+    </div>
+}
+
+<form class="mat-form" method="post" novalidate>
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("lock")@(Model.HasPassword ? "Passwort ändern" : "Passwort festlegen")</h2></div>
+        <div class="mat-card__body mat-form">
+            @if (Model.HasPassword)
+            {
+                <mc-field name="Current" kind="password" label="Aktuelles Passwort" required autocomplete="current-password" msg-required="Bitte das aktuelle Passwort eingeben." />
+            }
+            else
+            {
+                <p class="mat-hint">Du meldest dich über MatIdentity an. Ein Passwort hier brauchst du nur, um Geräte mit Benutzername und Passwort zu verbinden.</p>
+            }
+            <mc-field name="New" kind="password" label="Neues Passwort" required autocomplete="new-password" minlength="@Passwords.MinLength" hint="Mindestens @Passwords.MinLength Zeichen." msg-required="Bitte ein neues Passwort eingeben." />
+            <mc-field name="Repeat" kind="password" label="Neues Passwort wiederholen" required autocomplete="new-password" msg-required="Bitte das neue Passwort wiederholen." />
+        </div>
+    </div>
+    <mc-buttons save="Passwort ändern" save-icon="lock" back="@(Model.MustChange ? null : "/Account")" />
+</form>

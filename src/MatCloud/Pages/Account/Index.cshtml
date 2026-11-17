@@ -1,0 +1,28 @@
+@page "/Account"
+@model MatCloud.Pages.Account.IndexModel
+@{
+    ViewData["Title"] = "Konto";
+    ViewData["PageSub"] = $"Angemeldet als {Model.Account.UserName}";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Konto", null), ("Allgemein", null) };
+    ViewData["Width"] = "narrow";
+}
+
+<partial name="_AccountTabs" model="@("general")" />
+
+<form class="mat-form" method="post" novalidate>
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("user")Profil</h2></div>
+        <div class="mat-card__body mat-form">
+            <div class="mat-field">
+                <span class="mat-label">Benutzername</span>
+                <span class="mat-mono">@Model.Account.UserName</span>
+                <span class="mat-hint">@(Model.Account.IsExternal
+                    ? "Du meldest dich über MatIdentity an. Geräte verbindest du im Browser (Code bestätigen)."
+                    : "Damit meldest du dich im Browser und in den Thix-Apps an.")</span>
+            </div>
+            <mc-field name="DisplayName" label="Anzeigename" required value="@Model.DisplayName" maxlength="120" autocomplete="name" msg-required="Bitte einen Namen eingeben." />
+        </div>
+    </div>
+    <mc-buttons save="Speichern" back="/" />
+</form>

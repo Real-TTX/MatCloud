@@ -1,0 +1,31 @@
+@page "/Apps"
+@model MatCloud.Pages.Apps.IndexModel
+@{
+    ViewData["Title"] = "Apps und Daten";
+    ViewData["PageSub"] = "Was jede Thix-App für dich in der MatCloud speichert.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("MatCloud", "/"), ("Apps und Daten", null) };
+}
+
+<div class="mat-list">
+    <mc-table caption="Apps">
+        <thead>
+            <tr><th scope="col">App</th><th scope="col">Art</th><th scope="col" class="mat-num">Geräte</th><th scope="col" class="mat-num">Einträge</th><th scope="col" class="mat-num mat-hide-sm">Größe</th><th scope="col" class="mat-hide-md">Zuletzt geändert</th><th scope="col"><span class="mat-sr-only">Aktionen</span></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var a in Model.Apps)
+            {
+                <tr>
+                    <td data-label="App" class="mat-table__primary"><div class="mat-table__name">@Ui.Icon(a.App.Icon)<a href="/Apps/Detail?id=@a.App.Id">@a.App.Name</a></div></td>
+                    <td data-label="Art"><span class="mat-pill @(a.App.HasModule ? "mat-pill--accent" : "mat-pill--plain")">@a.App.KindText</span></td>
+                    <td data-label="Geräte" class="mat-num mat-mono">@a.Devices</td>
+                    <td data-label="Einträge" class="mat-num mat-mono">@Ui.Number(a.Usage.Items)</td>
+                    <td data-label="Größe" class="mat-num mat-mono mat-hide-sm">@Ui.Bytes(a.Usage.Bytes)</td>
+                    <td data-label="Zuletzt geändert" class="mat-hide-md">@(a.Usage.LastChange is { } last ? Dates.Ago(last) : "–")</td>
+                    <td class="mat-table__cell-actions"><div class="mat-table__actions"><a class="mat-btn mat-btn--ghost mat-btn--icon mat-btn--sm" href="/Apps/Detail?id=@a.App.Id" aria-label="@a.App.Name ansehen" data-tip="Ansehen">@Ui.Icon("chevron-right")</a></div></td>
+                </tr>
+            }
+        </tbody>
+    </mc-table>
+</div>
+
+<p class="mat-hint">„Web-App und Sync“: die App hat hier eigene Seiten (ThixClip: der Verlauf). „Sync“: die App hält ihre Daten auf allen Geräten gleich; hier siehst du, wie viel sie speichert.</p>

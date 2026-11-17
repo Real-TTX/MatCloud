@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The contract between MatCloud and the Thix apps: the routes, the request and answer types, the limits, the JSON options and a small
+    HTTP client (MatCloudClient). No logic of the server, no dependencies. The apps COPY these files (tools/contract-copy.js) and never
+    edit the copy. A change here is a change of the protocol: keep it backwards compatible (new optional fields only) or raise
+    CloudContract.ProtocolVersion. The version below is written into the first line of every copied file.
+  -->
+  <PropertyGroup>
+    <RootNamespace>MatCloud.Contract</RootNamespace>
+    <MatCloudContractVersion>1.0.0</MatCloudContractVersion>
+  </PropertyGroup>
+
+</Project>

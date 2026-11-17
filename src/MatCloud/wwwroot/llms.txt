@@ -1,0 +1,17 @@
+# MatCloud
+
+> MatCloud is the self-hosted cloud of the Thix apps (desktop apps for Windows and macOS: ThixClip, ThixNote, ThixCalendar, ThixTunnel, ThixLauncher). It keeps the data of an account the same on every PC and Mac: apps with a module have their own pages here (ThixClip: the clipboard history, searchable, also the text recognised in pictures), every other app keeps its data in the general sync. It is an app of the Mat family (MatPlatform contract 2, optional sign-in through MatIdentity).
+
+Every page needs an account; the content is private to its owner (administrators do not see the data of others). There is no public content to index. The interface is German.
+
+## Pages
+
+- Übersicht (`/`): the apps and the devices of the account
+- Zwischenablage (`/Clip`): the clipboard history of ThixClip
+- Apps und Daten (`/Apps`), Gerät verbinden (`/Connect`), Konto (`/Account`), Administration (`/Admin`)
+
+## The API of the devices
+
+JSON over HTTPS under `/api/v1`. A device (one app on one computer) signs in with `POST /api/v1/devices/login` or in the browser (`POST /api/v1/devices/link`, confirmed on `/Connect`) and sends its token as a bearer token. The general sync: `GET /api/v1/sync/changes?since=`, `POST /api/v1/sync/push`, the long poll `GET /api/v1/sync/wait?since=`. ThixClip: `/api/v1/clip/...`. The platform contract of the Mat apps: `GET /api`, `/api/health`.
+
+- [Source and releases](https://github.com/Real-TTX/MatCloud)

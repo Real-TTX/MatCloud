@@ -1,0 +1,20 @@
+@model bool
+@*
+    The menu of MatCloud itself (MatDesign SHELL-01 .. SHELL-19): the overview of the apps, the apps with what they keep, and the page that connects a device
+    in the browser. Model: whether it is the menu shown.
+*@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    var home = path == "/" || path.Equals("/Index", StringComparison.OrdinalIgnoreCase);
+    var apps = Menu.Under(path, "/Apps");
+    var connect = Menu.Under(path, "/Connect");
+}
+<nav class="mat-nav__scroll" aria-label="MatCloud" data-nav-panel="@Menu.Home" hidden="@(!Model)">
+    <ul class="mat-nav__list">
+        <li><a class="@Cls(home)" href="/" aria-current="@Cur(home)">@Ui.Icon("home")<span>Übersicht</span></a></li>
+        <li><a class="@Cls(apps)" href="/Apps" aria-current="@Cur(apps)">@Ui.Icon("grid")<span>Apps und Daten</span></a></li>
+        <li><a class="@Cls(connect)" href="/Connect" aria-current="@Cur(connect)">@Ui.Icon("link")<span>Gerät verbinden</span></a></li>
+    </ul>
+</nav>

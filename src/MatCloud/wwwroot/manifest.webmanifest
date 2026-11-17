@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "MatCloud",
+  "short_name": "MatCloud",
+  "description": "Die Cloud der Thix-Apps: Zwischenablage, Notizen und Einstellungen auf allen Geräten, im Browser und als App.",
+  "lang": "de",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f5f4f1",
+  "theme_color": "#f5f4f1",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/img/logo.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Zwischenablage", "short_name": "Verlauf", "url": "/Clip", "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Neuer Eintrag", "short_name": "Neu", "url": "/Clip/Edit", "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Gerät verbinden", "short_name": "Verbinden", "url": "/Connect", "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

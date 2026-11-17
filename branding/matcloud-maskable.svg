@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- MatCloud, maskable: the tile fills the square, the cloud sits inside the safe zone (the inner 80 %). -->
+  <rect width="256" height="256" fill="#0369a1"/>
+  <g transform="translate(25.6 25.6) scale(0.8) translate(-11 2)">
+    <g fill="#ffffff">
+      <circle cx="100" cy="134" r="38"/>
+      <circle cx="146" cy="112" r="48"/>
+      <circle cx="186" cy="146" r="30"/>
+      <rect x="62" y="134" width="154" height="54" rx="27"/>
+    </g>
+    <g fill="none" stroke="#0369a1" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M104 140h50m-14 -14l14 14l-14 14"/>
+      <path d="M160 170h-50m14 -14l-14 14l14 14"/>
+    </g>
+  </g>
+</svg>

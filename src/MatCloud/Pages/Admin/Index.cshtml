@@ -1,0 +1,53 @@
+@page "/Admin"
+@model MatCloud.Pages.Admin.IndexModel
+@{
+    var s = Model.Snapshot;
+    ViewData["Title"] = "System";
+    ViewData["PageSub"] = "Die Zahlen dieser MatCloud und was für alle gilt.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Administration", null), ("System", null) };
+}
+
+<div class="mat-stats">
+    <a class="mat-stat" href="/Admin/Users">@Ui.Icon("users", "mat-stat__icon")<span class="mat-stat__label">Benutzer</span><span class="mat-stat__value">@s.ActiveUsers</span></a>
+    <div class="mat-stat">@Ui.Icon("monitor", "mat-stat__icon")<span class="mat-stat__label">Geräte</span><span class="mat-stat__value">@s.Devices</span></div>
+    <div class="mat-stat">@Ui.Icon("activity", "mat-stat__icon")<span class="mat-stat__label">Heute aktiv</span><span class="mat-stat__value">@s.DevicesSeenToday</span></div>
+    <a class="mat-stat" href="/Admin/Apps">@Ui.Icon("grid", "mat-stat__icon")<span class="mat-stat__label">Apps an</span><span class="mat-stat__value">@s.AppsOn</span></a>
+    <div class="mat-stat">@Ui.Icon("database", "mat-stat__icon")<span class="mat-stat__label">Sync-Einträge</span><span class="mat-stat__value">@Ui.Number(s.SyncItems)</span></div>
+    <div class="mat-stat @(s.Admins == 0 ? "mat-stat--danger" : "")">@Ui.Icon("shield", "mat-stat__icon")<span class="mat-stat__label">Administratoren</span><span class="mat-stat__value">@s.Admins</span></div>
+</div>
+
+<form class="mat-form" method="post" novalidate>
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("globe")Adresse</h2></div>
+        <div class="mat-card__body mat-form">
+            @if (Model.FixedPublicUrl is { } fixedUrl)
+            {
+                <div class="mat-field">
+                    <span class="mat-label">Öffentliche Adresse</span>
+                    <span class="mat-mono">@fixedUrl</span>
+                    <span class="mat-hint">Festgelegt durch MAT_PUBLIC_URL (Mattiverse); hier lässt sie sich nicht ändern.</span>
+                </div>
+            }
+            else
+            {
+                <mc-field name="PublicUrl" kind="url" label="Öffentliche Adresse" value="@Model.PublicUrl" maxlength="300" placeholder="https://cloud.example.com"
+                          hint="Für den Link, den eine App bei der Anmeldung im Browser öffnet. Leer: die Adresse, unter der die App die MatCloud erreicht." />
+            }
+            <div class="mat-field">
+                <span class="mat-label">Anmeldung</span>
+                <span>@(Model.IdentityEnabled ? "Über MatIdentity (lokal weiter mit ?local=1)" : "Eigene Konten der MatCloud")</span>
+            </div>
+        </div>
+    </div>
+    <div class="mat-btn-row">
+        @if (Model.FixedPublicUrl is null)
+        {
+            <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("save")<span>Speichern</span></button>
+        }
+        <a class="mat-btn mat-btn--secondary" href="/Admin/Connections">@Ui.Icon("plug")<span>Verbindungen</span></a>
+        <span class="mat-btn-row__spacer"></span>
+        <button type="submit" class="mat-btn mat-btn--secondary" asp-page-handler="CleanUp" formnovalidate
+                data-confirm="Beendete Sitzungen, alte Geräte-Anmeldungen, alte Löschmarken und abgelaufene Einträge der Apps jetzt entfernen?" data-confirm-ok="Aufräumen">@Ui.Icon("refresh")<span>Aufräumen</span></button>
+    </div>
+</form>

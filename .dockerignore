@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+.claude/
+.config/
+artifacts/
+publish/
+TestResults/
+branding/
+docs/
+tests/
+tools/
+node_modules/

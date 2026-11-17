@@ -1,0 +1,79 @@
+@page "/Apps/Detail"
+@model MatCloud.Pages.Apps.DetailModel
+@{
+    var app = Model.App;
+    ViewData["Title"] = app.App.Name;
+    ViewData["PageSub"] = app.App.Description;
+    ViewData["Crumbs"] = new List<(string, string?)> { ("MatCloud", "/"), ("Apps und Daten", "/Apps"), (app.App.Name, null) };
+}
+
+<div class="mat-stats">
+    <div class="mat-stat"><span class="mat-stat__label">Geräte</span><span class="mat-stat__value">@app.Devices</span></div>
+    <div class="mat-stat"><span class="mat-stat__label">Einträge</span><span class="mat-stat__value">@Ui.Number(app.Usage.Items)</span></div>
+    <div class="mat-stat"><span class="mat-stat__label">Größe</span><span class="mat-stat__value">@Ui.Bytes(app.Usage.Bytes)</span></div>
+    <div class="mat-stat"><span class="mat-stat__label">Zuletzt geändert</span><span class="mat-stat__value">@(app.Usage.LastChange is { } last ? Dates.Ago(last) : "–")</span></div>
+</div>
+
+@if (app.App.Home is { } home)
+{
+    <div class="mat-card">
+        <div class="mat-card__body">
+            <p>@app.App.Name hat in der MatCloud eigene Seiten.</p>
+            <a class="mat-btn mat-btn--primary" href="@home">@Ui.Icon(app.App.Icon)<span>@app.App.Name öffnen</span></a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("database")Gespeichert</h2></div>
+        <div class="mat-card__body">
+            @if (Model.Collections.Count == 0)
+            {
+                <p class="mat-muted">Noch nichts. Sobald ein Gerät mit @app.App.Name verbunden ist, liegen seine Daten hier und sind auf allen Geräten gleich.</p>
+            }
+            else
+            {
+                <mc-table caption="Sammlungen">
+                    <thead><tr><th scope="col">Sammlung</th><th scope="col" class="mat-num">Einträge</th><th scope="col" class="mat-num">Größe</th><th scope="col">Zuletzt geändert</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in Model.Collections)
+                        {
+                            <tr>
+                                <td data-label="Sammlung" class="mat-mono">@c.Collection</td>
+                                <td data-label="Einträge" class="mat-num mat-mono">@Ui.Number(c.Items)</td>
+                                <td data-label="Größe" class="mat-num mat-mono">@Ui.Bytes(c.Bytes)</td>
+                                <td data-label="Zuletzt geändert">@(c.LastChange is { } changed ? Dates.Ago(changed) : "–")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </mc-table>
+                <p class="mat-hint">Den Inhalt liest nur die App selbst; verschlüsselte Notizen bleiben auch hier verschlüsselt.</p>
+            }
+        </div>
+    </div>
+}
+
+<div class="mat-card">
+    <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("monitor")Geräte</h2></div>
+    <div class="mat-card__body">
+        @if (Model.Devices.Count == 0)
+        {
+            <p class="mat-muted">Kein Gerät mit @app.App.Name. In der App unter <strong>Einstellungen › Cloud</strong> verbinden.</p>
+        }
+        else
+        {
+            <ul class="mc-plain-list">
+                @foreach (var d in Model.Devices)
+                {
+                    <li>@Ui.Icon(DeviceService.PlatformIcon(d.Platform))<a href="/Account/Device?id=@d.Id">@d.Name</a> <span class="mat-muted">· @DeviceService.PlatformName(d.Platform) · @Dates.Ago(d.LastSeenDate)</span></li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+<form method="post">
+    <mc-buttons back="/Apps" delete-handler="Delete" delete-label="Daten in der Cloud löschen"
+                delete-confirm="Alles löschen, was @app.App.Name in der MatCloud gespeichert hat? Die Geräte dieser App werden abgemeldet; die Daten auf den Geräten bleiben." />
+</form>

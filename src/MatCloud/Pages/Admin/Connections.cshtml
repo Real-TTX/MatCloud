@@ -1,0 +1,9 @@
+@page "/Admin/Connections"
+@addTagHelper *, MatCloud.Core
+@{
+    ViewData["Title"] = "Verbindungen";
+    ViewData["PageSub"] = "Was die MatCloud von anderen Mat-Apps nutzt (MatIdentity) und was sie dem Startbildschirm von Mattiverse beiträgt.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Administration", "/Admin"), ("Verbindungen", null) };
+}
+
+<mat-connections />

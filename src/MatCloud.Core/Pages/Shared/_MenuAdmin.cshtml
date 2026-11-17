@@ -1,0 +1,19 @@
+@model bool
+@* The menu of the administration (administrators only): the system, the accounts, the apps, the connections of the platform. Model: whether it is the menu shown. *@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    var system = path.Equals("/Admin", StringComparison.OrdinalIgnoreCase) || path.Equals("/Admin/Index", StringComparison.OrdinalIgnoreCase);
+    var users = Menu.Under(path, "/Admin/Users");
+    var apps = Menu.Under(path, "/Admin/Apps");
+    var connections = Menu.Under(path, "/Admin/Connections");
+}
+<nav class="mat-nav__scroll" aria-label="Administration" data-nav-panel="@Menu.Admin" hidden="@(!Model)">
+    <ul class="mat-nav__list">
+        <li><a class="@Cls(system)" href="/Admin" aria-current="@Cur(system)">@Ui.Icon("dashboard")<span>System</span></a></li>
+        <li><a class="@Cls(users)" href="/Admin/Users" aria-current="@Cur(users)">@Ui.Icon("users")<span>Benutzer</span></a></li>
+        <li><a class="@Cls(apps)" href="/Admin/Apps" aria-current="@Cur(apps)">@Ui.Icon("grid")<span>Apps</span></a></li>
+        <li><a class="@Cls(connections)" href="/Admin/Connections" aria-current="@Cur(connections)">@Ui.Icon("plug")<span>Verbindungen</span></a></li>
+    </ul>
+</nav>

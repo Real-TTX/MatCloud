@@ -1,0 +1,31 @@
+@page "/Clip/Settings"
+@model MatCloud.Apps.Clip.Pages.Clip.SettingsModel
+@{
+    ViewData["Title"] = "Einstellungen";
+    ViewData["PageSub"] = "Was für die Zwischenablage auf allen Geräten gilt.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Zwischenablage", "/Clip"), ("Einstellungen", null) };
+    ViewData["Width"] = "narrow";
+}
+
+@section TopActions {
+    <partial name="_ClipTopActions" />
+}
+
+<form class="mat-form" method="post" novalidate>
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("archive")Speicherdauer</h2></div>
+        <div class="mat-card__body mat-form">
+            <mc-field name="RetentionDays" kind="select" label="Wie lange sollen Einträge gespeichert werden?" value="@Model.RetentionDays" options="SettingsModel.RetentionChoices"
+                      hint="Gilt für alle Geräte mit ThixClip. Favoriten und angeheftete Einträge bleiben immer. Ältere Einträge werden beim Speichern sofort gelöscht." />
+        </div>
+    </div>
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("monitor")Geräte</h2></div>
+        <div class="mat-card__body">
+            <p>Ein Gerät verbindest du in ThixClip unter <strong>Einstellungen › Cloud</strong> mit der Adresse dieser MatCloud: im Browser bestätigen oder mit Benutzername und Passwort.</p>
+            <p><a class="mat-link" href="/Account/Devices?app=@CloudApps.Clip">Die Geräte mit ThixClip ansehen</a></p>
+        </div>
+    </div>
+    <mc-buttons save="Speichern" back="/Clip" />
+</form>

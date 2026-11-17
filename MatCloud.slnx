@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MatCloud.Contract/MatCloud.Contract.csproj" />
+    <Project Path="src/MatCloud.Core/MatCloud.Core.csproj" />
+    <Project Path="src/MatCloud/MatCloud.csproj" />
+  </Folder>
+  <Folder Name="/src/Apps/">
+    <Project Path="src/Apps/MatCloud.Apps.Clip/MatCloud.Apps.Clip.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MatCloud.Tests/MatCloud.Tests.csproj" />
+  </Folder>
+</Solution>

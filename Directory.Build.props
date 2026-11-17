@@ -1,0 +1,52 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>Matthias Schmoldt</Company>
+    <Product>MatCloud</Product>
+    <Authors>Matthias Schmoldt</Authors>
+    <Copyright>© Matthias Schmoldt</Copyright>
+    <SatelliteResourceLanguages>de;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!--
+    Versioning (single source of truth: Major/Minor below). CI sets Channel / BuildNumber / BuildDate:
+      release : <major>.<minor>.<build>-<date>   e.g. 0.1.42-20261117   (branch main)
+      nightly : nightly-<build>-<date>          e.g. nightly-43-20261117 (branch dev)
+      local   : local-<date>                    e.g. local-20261117      (every local build)
+  -->
+  <PropertyGroup>
+    <MatCloudMajor>0</MatCloudMajor>
+    <MatCloudMinor>1</MatCloudMinor>
+
+    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
+    <Channel Condition="'$(Channel)' == ''">local</Channel>
+    <BuildDate Condition="'$(BuildDate)' == ''">$([System.DateTime]::UtcNow.ToString('yyyyMMdd'))</BuildDate>
+
+    <Version>$(MatCloudMajor).$(MatCloudMinor).$(BuildNumber)</Version>
+    <AssemblyVersion>$(MatCloudMajor).$(MatCloudMinor).0.0</AssemblyVersion>
+    <FileVersion>$(MatCloudMajor).$(MatCloudMinor).$(BuildNumber).0</FileVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Channel)' == 'release'">
+    <InformationalVersion>$(MatCloudMajor).$(MatCloudMinor).$(BuildNumber)-$(BuildDate)</InformationalVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Channel)' == 'nightly'">
+    <InformationalVersion>nightly-$(BuildNumber)-$(BuildDate)</InformationalVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Channel)' == 'local'">
+    <InformationalVersion>local-$(BuildDate)</InformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="MatCloudChannel" Value="$(Channel)" />
+    <AssemblyMetadata Include="MatCloudRepository" Value="Real-TTX/MatCloud" />
+  </ItemGroup>
+
+</Project>

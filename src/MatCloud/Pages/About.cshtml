@@ -1,0 +1,44 @@
+@page "/About"
+@{
+    ViewData["Title"] = "Über MatCloud";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Über MatCloud", null) };
+    ViewData["Width"] = "narrow";
+}
+
+<div class="mat-card">
+    <div class="mat-card__body mc-about">
+        <div class="mc-about__head">
+            @Ui.Logo("lg")
+            <div>
+                <h2>MatCloud</h2>
+                <p>Die Cloud der Thix-Apps: Zwischenablage, Notizen und Einstellungen auf allen deinen PCs und Macs – synchron und im Browser erreichbar.</p>
+            </div>
+        </div>
+        <dl class="mc-facts">
+            <dt>@Ui.Icon("tag")Version</dt><dd class="mat-mono">@AppInfo.VersionText</dd>
+            <dt>@Ui.Icon("network")Protokoll</dt><dd class="mat-mono">v@(CloudContract.ProtocolVersion)</dd>
+            <dt>@Ui.Icon("grid")Module</dt><dd>@string.Join(", ", CloudModules.All.Select(m => CloudApps.NameOf(m.AppId)))</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="mat-card">
+    <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("download")Die Thix-Apps</h2></div>
+    <div class="mat-card__body">
+        <p>Jede Thix-App verbindest du in ihren Einstellungen unter „Cloud“ mit der Adresse dieser Seite: im Browser bestätigen (auch mit MatIdentity) oder mit Benutzername und Passwort.
+           Danach sind ihre Daten auf allen Geräten gleich. ThixClip hat hier zusätzlich eigene Seiten: den Verlauf der Zwischenablage.</p>
+        <ul class="mc-plain-list">
+            @foreach (var app in CloudApps.All)
+            {
+                <li><strong>@app.Name</strong> <span class="mat-muted">· @app.Description</span></li>
+            }
+        </ul>
+        <p><a href="https://github.com/Real-TTX" target="_blank" rel="noopener">@Ui.Icon("external") Downloads und Versionen auf GitHub</a></p>
+    </div>
+</div>
+
+<div class="mat-card">
+    <div class="mat-card__body">
+        <p class="mat-muted">© Matthias Schmoldt. Teil der Mat-Familie: Oberfläche MatUi, Plattform MatPlatform (MatDesign), Anmeldung optional über MatIdentity. Bilder: SkiaSharp. Datenbank: PostgreSQL.</p>
+    </div>
+</div>

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The ThixClip module of MatCloud: the clipboard history of an account. Its tables (ClipEntry, ClipImage, the sequence ClipRevision), the
+    sync API of the ThixClip devices (/api/v1/clip, MatCloud.Contract.Clip), the live list (/live/clip) and the pages in the browser (/Clip).
+    Images are decoded and made into PNG and thumbnails with SkiaSharp.
+  -->
+  <PropertyGroup>
+    <RootNamespace>MatCloud.Apps.Clip</RootNamespace>
+    <AssemblyName>MatCloud.Apps.Clip</AssemblyName>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <MatCloudWebUsings>true</MatCloudWebUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The same SkiaSharp line as Avalonia 11.3 on the desktop. The Linux native library without dependencies runs in the slim ASP.NET image. -->
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MatCloud.Core\MatCloud.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MatCloud.Tests" />
+  </ItemGroup>
+
+</Project>

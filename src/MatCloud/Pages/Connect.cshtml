@@ -1,0 +1,70 @@
+@page "/Connect"
+@model MatCloud.Pages.ConnectModel
+@{
+    ViewData["Title"] = "Gerät verbinden";
+    ViewData["PageSub"] = "Eine Thix-App mit deinem Konto verbinden.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("MatCloud", "/"), ("Gerät verbinden", null) };
+    ViewData["Width"] = "narrow";
+}
+
+@if (Model.Connected is { } device)
+{
+    <div class="mat-alert mat-alert--success" role="status">
+        @Ui.Icon("check")
+        <div class="mat-alert__body"><strong>Verbunden.</strong> @device.AppName auf @device.Name synchronisiert jetzt mit deinem Konto. Du kannst zur App zurückkehren.</div>
+    </div>
+    <div class="mat-btn-row">
+        <a class="mat-btn mat-btn--primary" href="/">@Ui.Icon("home")<span>Zur Übersicht</span></a>
+        <a class="mat-btn mat-btn--secondary" href="/Account/Devices">@Ui.Icon("monitor")<span>Geräte</span></a>
+    </div>
+}
+else if (Model.Refused)
+{
+    <div class="mat-alert mat-alert--info" role="status">
+        @Ui.Icon("info")
+        <div class="mat-alert__body">Abgelehnt. Das Gerät wurde nicht verbunden.</div>
+    </div>
+    <div class="mat-btn-row">
+        <a class="mat-btn mat-btn--secondary" href="/">@Ui.Icon("home")<span>Zur Übersicht</span></a>
+    </div>
+}
+else if (Model.Link is { } link)
+{
+    <form class="mat-form" method="post" novalidate>
+        <input type="hidden" name="Code" value="@link.DisplayCode" />
+        <div class="mat-card">
+            <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon(DeviceService.PlatformIcon(link.Platform))@link.AppName auf @link.DeviceName</h2></div>
+            <div class="mat-card__body">
+                <p>Diese App möchte sich mit deinem Konto <strong>@Model.UserName</strong> verbinden. Danach liest und schreibt sie ihre Daten in dieser MatCloud – und nur ihre eigenen.</p>
+                <p class="mc-code" aria-label="Code">@link.DisplayCode</p>
+                <p class="mat-hint">Vergleiche den Code mit dem in der App. Verbinde nur, wenn du die Anmeldung gerade selbst gestartet hast.</p>
+                <dl class="mc-facts">
+                    <dt>@Ui.Icon("grid")App</dt><dd>@link.AppName @(link.AppVersion.Length > 0 ? $"({link.AppVersion})" : "")</dd>
+                    <dt>@Ui.Icon("monitor")System</dt><dd>@DeviceService.PlatformName(link.Platform)</dd>
+                    <dt>@Ui.Icon("globe")Adresse</dt><dd class="mat-mono">@(link.IpAddress ?? "–")</dd>
+                    <dt>@Ui.Icon("clock")Gültig bis</dt><dd>@Dates.Stamp(link.ExpiresDate)</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="mat-btn-row">
+            <button type="submit" class="mat-btn mat-btn--primary" asp-page-handler="Approve">@Ui.Icon("link")<span>Verbinden</span></button>
+            <span class="mat-btn-row__spacer"></span>
+            <button type="submit" class="mat-btn mat-btn--danger" asp-page-handler="Deny" formnovalidate>@Ui.Icon("x")<span>Ablehnen</span></button>
+        </div>
+    </form>
+}
+else
+{
+    <form class="mat-form" method="get" novalidate>
+        <partial name="_FormSummary" model="ViewData.ModelState" />
+        <div class="mat-card">
+            <div class="mat-card__body mat-form">
+                <mc-field name="Code" label="Code aus der App" required value="@Model.Code" maxlength="9" autocomplete="off" placeholder="ABCD-EFGH"
+                          hint="Die App zeigt den Code, wenn du in ihren Einstellungen unter „Cloud“ „Im Browser anmelden“ wählst." msg-required="Bitte den Code eingeben." />
+            </div>
+        </div>
+        <div class="mat-btn-row">
+            <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("arrow-right")<span>Weiter</span></button>
+        </div>
+    </form>
+}

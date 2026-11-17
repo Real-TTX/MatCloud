@@ -1,0 +1,50 @@
+@page "/"
+@model MatCloud.Pages.IndexModel
+@{
+    ViewData["Title"] = "Übersicht";
+    ViewData["PageSub"] = Model.Devices == 0
+        ? "Verbinde eine Thix-App mit dieser MatCloud, dann sind ihre Daten auf allen Geräten gleich."
+        : $"{(Model.Devices == 1 ? "1 Gerät" : $"{Model.Devices} Geräte")} synchronisieren mit deinem Konto.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("MatCloud", null), ("Übersicht", null) };
+}
+
+<div class="mat-grid mc-apps">
+    @foreach (var app in Model.Apps)
+    {
+        var href = app.App.Home ?? $"/Apps/Detail?id={app.App.Id}";
+        <a class="mat-card mc-app" href="@href">
+            <div class="mat-card__body">
+                <div class="mc-app__head">
+                    <span class="mc-app__icon">@Ui.Icon(app.App.Icon)</span>
+                    <div>
+                        <h2 class="mc-app__name">@app.App.Name</h2>
+                        <p class="mat-muted">@app.App.Description</p>
+                    </div>
+                </div>
+                <div class="mc-app__facts">
+                    <span class="mat-pill @(app.App.HasModule ? "mat-pill--accent" : "mat-pill--plain")">@app.App.KindText</span>
+                    <span>@Ui.Icon("monitor")@(app.Devices == 1 ? "1 Gerät" : $"{app.Devices} Geräte")</span>
+                    <span>@Ui.Icon("database")@Ui.Number(app.Usage.Items) · @Ui.Bytes(app.Usage.Bytes)</span>
+                    @if (app.Usage.LastChange is { } last)
+                    {
+                        <span>@Ui.Icon("clock")@Dates.Ago(last)</span>
+                    }
+                </div>
+            </div>
+        </a>
+    }
+</div>
+
+@if (Model.Devices == 0)
+{
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("link")So verbindest du ein Gerät</h2></div>
+        <div class="mat-card__body">
+            <ol class="mc-steps">
+                <li>Öffne in der Thix-App (ThixClip, ThixNote …) <strong>Einstellungen › Cloud</strong>.</li>
+                <li>Trage die Adresse dieser MatCloud ein: <span class="mat-mono">@Model.ServerAddress</span></li>
+                <li>Wähle <strong>Im Browser anmelden</strong> und bestätige den Code hier unter <a class="mat-link" href="/Connect">Gerät verbinden</a>.</li>
+            </ol>
+        </div>
+    </div>
+}

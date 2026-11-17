@@ -1,0 +1,45 @@
+@page "/Admin/Apps"
+@model MatCloud.Pages.Admin.Apps.IndexModel
+@{
+    ViewData["Title"] = "Apps";
+    ViewData["PageSub"] = "Welche Thix-Apps diese MatCloud bedient. Die Daten eines Kontos sieht nur sein Besitzer.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Administration", "/Admin"), ("Apps", null) };
+}
+
+<div class="mat-list">
+    <mc-table caption="Apps">
+        <thead>
+            <tr><th scope="col">App</th><th scope="col">Art</th><th scope="col">Status</th><th scope="col" class="mat-num">Geräte</th><th scope="col" class="mat-num mat-hide-sm">Konten</th><th scope="col" class="mat-num mat-hide-sm">Einträge</th><th scope="col" class="mat-num mat-hide-md">Größe</th><th scope="col"><span class="mat-sr-only">Aktionen</span></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var a in Model.Apps)
+            {
+                <tr>
+                    <td data-label="App" class="mat-table__primary"><div class="mat-table__name">@Ui.Icon(a.App.Icon)<span>@a.App.Name<small>@a.App.Description</small></span></div></td>
+                    <td data-label="Art"><span class="mat-pill @(a.App.HasModule ? "mat-pill--accent" : "mat-pill--plain")">@a.App.KindText</span></td>
+                    <td data-label="Status">@if (a.App.IsEnabled) { <span class="mat-pill mat-pill--ok">An</span> } else { <span class="mat-pill mat-pill--warn">Aus</span> }</td>
+                    <td data-label="Geräte" class="mat-num mat-mono">@a.Devices</td>
+                    <td data-label="Konten" class="mat-num mat-mono mat-hide-sm">@a.Accounts</td>
+                    <td data-label="Einträge" class="mat-num mat-mono mat-hide-sm">@Ui.Number(a.Usage.Items)</td>
+                    <td data-label="Größe" class="mat-num mat-mono mat-hide-md">@Ui.Bytes(a.Usage.Bytes)</td>
+                    <td class="mat-table__cell-actions">
+                        <form method="post" asp-page-handler="Toggle" class="mat-table__actions">
+                            <input type="hidden" name="app" value="@a.App.Id" />
+                            <input type="hidden" name="enabled" value="@((!a.App.IsEnabled).ToString().ToLowerInvariant())" />
+                            @if (a.App.IsEnabled)
+                            {
+                                <button type="submit" class="mat-btn mat-btn--secondary mat-btn--sm" data-confirm="@a.App.Name ausschalten? Ihre Geräte synchronisieren dann nicht mehr; die Daten bleiben." data-confirm-ok="Ausschalten">@Ui.Icon("x")<span>Ausschalten</span></button>
+                            }
+                            else
+                            {
+                                <button type="submit" class="mat-btn mat-btn--primary mat-btn--sm">@Ui.Icon("check")<span>Einschalten</span></button>
+                            }
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </mc-table>
+</div>
+
+<p class="mat-hint">„Web-App und Sync“: ein Modul der MatCloud mit eigenen Seiten und eigener Schnittstelle (ThixClip). „Sync“: die App nutzt den allgemeinen Sync – sie braucht hier keinen eigenen Code.</p>

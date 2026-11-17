@@ -1,0 +1,45 @@
+# MatCloud - Release (branch main, image :latest)
+#   docker compose up -d        ->  http://localhost:4950
+# The first visit opens the setup assistant: it creates the administrator. Then connect the Thix apps with that account
+# (Einstellungen > Cloud in every app, the address of this installation). Put a TLS proxy in front of it for use over the internet.
+name: matcloud
+
+services:
+  web:
+    image: ghcr.io/real-ttx/matcloud:latest
+    restart: unless-stopped
+    ports:
+      - "4950:4950"
+    volumes:
+      - web-data:/data
+    # Optional, none is required (MatDesign docs/PLATFORM.md; Mattiverse sets them when it installs MatCloud):
+    # environment:
+    #   MAT_API_KEY: "<key for /api of the platform contract>"
+    #   MAT_PUBLIC_URL: "https://cloud.example.com"          # the public address (the link of the sign-in of devices in the browser)
+    #   MATIDENTITY_AUTHORITY: "https://id.example.com"      # sign-in through MatIdentity
+    #   MATIDENTITY_CLIENT_ID: "matcloud"
+    #   MATIDENTITY_CLIENT_SECRET: "<secret>"
+    #   MATIDENTITY_INTERNAL_URL: "http://matidentity:2300"
+    #   MAT_FRAME_ANCESTORS: "https://mattiverse.example.com"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: matcloud
+      POSTGRES_USER: matcloud
+      POSTGRES_PASSWORD: matcloud
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matcloud -d matcloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  web-data:
+  db-data:

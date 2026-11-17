@@ -1,0 +1,3 @@
+# MatCloud - the private cloud of the Thix apps. Every page needs an account; nothing here is for search engines.
+User-agent: *
+Disallow: /

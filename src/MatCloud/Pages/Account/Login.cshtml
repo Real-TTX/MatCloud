@@ -1,0 +1,81 @@
+@page "/Account/Login"
+@model MatCloud.Pages.Account.LoginModel
+@{
+    Layout = "_LayoutAuth";
+    ViewData["Title"] = "Anmelden";
+}
+
+<div class="mat-auth__card">
+    <div class="mat-auth__brand">
+        @Ui.Logo("lg")
+        <h1>MatCloud</h1>
+        <p class="mat-muted">Die Cloud deiner Thix-Apps: Zwischenablage, Notizen und Einstellungen auf allen Geräten.</p>
+    </div>
+
+    @if (Model.SignedOut)
+    {
+        <div class="mat-alert mat-alert--info" role="status">
+            @Ui.Icon("info")
+            <div class="mat-alert__body">Du bist abgemeldet.</div>
+        </div>
+    }
+
+    @if (Model.SsoError)
+    {
+        <div class="mat-alert mat-alert--warning" role="status">
+            @Ui.Icon("alert")
+            <div class="mat-alert__body">Die Anmeldung über MatIdentity hat nicht geklappt. Du kannst dich hier mit einem lokalen Konto anmelden.</div>
+        </div>
+    }
+
+    @if (Model.Denied)
+    {
+        <div class="mat-alert mat-alert--danger" role="alert">
+            @Ui.Icon("alert")
+            <div class="mat-alert__body">MatIdentity hat dich angemeldet, aber dein Konto ist in der MatCloud gesperrt. Bitte an die Administration wenden.</div>
+        </div>
+    }
+
+    @if (Model.PendingLink is { } link)
+    {
+        <div class="mat-alert mat-alert--info" role="status">
+            @Ui.Icon("link")
+            <div class="mat-alert__body">Hier gibt es schon ein Konto mit diesem Namen. Melde dich einmal mit seinem Passwort an, dann wird es mit MatIdentity verbunden.</div>
+        </div>
+    }
+    else if (Model.LinkExpired)
+    {
+        <div class="mat-alert mat-alert--warning" role="status">
+            @Ui.Icon("clock")
+            <div class="mat-alert__body">Die Verbindung mit MatIdentity ist abgelaufen. Bitte noch einmal anmelden.</div>
+        </div>
+    }
+
+    <form class="mat-form" method="post" novalidate id="login-form">
+        <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
+        <partial name="_FormSummary" model="ViewData.ModelState" />
+        <mc-field name="UserName" label="Benutzername" required autocomplete="username" value="@Model.UserName" autofocus msg-required="Bitte den Benutzernamen eingeben." />
+        <mc-field name="Password" kind="password" label="Passwort" required autocomplete="current-password" msg-required="Bitte das Passwort eingeben." />
+        <mc-field name="Remember" kind="check" label="Angemeldet bleiben" value="@Model.Remember.ToString()" />
+        <div class="mat-btn-row mat-btn-row--plain">
+            <button type="submit" class="mat-btn mat-btn--primary mat-btn--block">@Ui.Icon("login")<span>Anmelden</span></button>
+        </div>
+        @if (Model.IdentityEnabled)
+        {
+            <div class="mat-btn-row mat-btn-row--plain">
+                <a class="mat-btn mat-btn--secondary mat-btn--block" href="@Model.IdentitySignInUrl">@Ui.Icon("key")<span>Mit MatIdentity anmelden</span></a>
+            </div>
+        }
+        else
+        {
+            <p class="mat-muted mc-center">Kein Konto? Die Administration legt Konten an.</p>
+        }
+    </form>
+
+    @if (Model.PendingLink is not null)
+    {
+        <form method="post" asp-page-handler="CancelLink" class="mc-center">
+            <button type="submit" class="mat-btn mat-btn--ghost">Abbrechen</button>
+        </form>
+    }
+</div>

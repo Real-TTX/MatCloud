@@ -1,0 +1,26 @@
+@model bool
+@*
+    The menu of the clipboard (the module ThixClip): the main action first (a new clip), then the history and its views (pictures, links, favourites, pinned),
+    then the settings of the clips. Model: whether it is the menu shown.
+*@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    var kind = Context.Request.Query["kind"].ToString();
+    var flag = Context.Request.Query["flag"].ToString();
+    var onList = path.Equals("/Clip", StringComparison.OrdinalIgnoreCase);
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    var all = onList && kind.Length == 0 && flag.Length == 0;
+    var settings = Menu.Under(path, "/Clip/Settings");
+}
+<nav class="mat-nav__scroll" aria-label="Zwischenablage" data-nav-panel="@CloudApps.Clip" hidden="@(!Model)">
+    <ul class="mat-nav__list">
+        <li><a class="mat-nav__item mat-nav__item--primary" href="/Clip/Edit">@Ui.Icon("plus")<span>Neuer Eintrag</span></a></li>
+        <li><a class="@Cls(all)" href="/Clip" aria-current="@Cur(all)">@Ui.Icon("clock")<span>Verlauf</span></a></li>
+        <li><a class="@Cls(onList && kind == "image")" href="/Clip?kind=image" aria-current="@Cur(onList && kind == "image")">@Ui.Icon("image")<span>Bilder</span></a></li>
+        <li><a class="@Cls(onList && kind == "link")" href="/Clip?kind=link" aria-current="@Cur(onList && kind == "link")">@Ui.Icon("link")<span>Links</span></a></li>
+        <li><a class="@Cls(onList && flag == "favorite")" href="/Clip?flag=favorite" aria-current="@Cur(onList && flag == "favorite")">@Ui.Icon("star")<span>Favoriten</span></a></li>
+        <li><a class="@Cls(onList && flag == "pinned")" href="/Clip?flag=pinned" aria-current="@Cur(onList && flag == "pinned")">@Ui.Icon("pin")<span>Angeheftet</span></a></li>
+        <li><a class="@Cls(settings)" href="/Clip/Settings" aria-current="@Cur(settings)">@Ui.Icon("settings")<span>Einstellungen</span></a></li>
+    </ul>
+</nav>
