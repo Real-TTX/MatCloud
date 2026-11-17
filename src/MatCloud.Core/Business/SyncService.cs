@@ -104,7 +104,7 @@ public static class SyncService
     public static async Task<long> LatestAsync(AppDbContext db, long userId, string app, CancellationToken ct = default)
         => await db.SyncItems.Where(i => i.UserId == userId && i.App == app).MaxAsync(i => (long?)i.Revision, ct) ?? 0;
 
-    /// <summary>The long poll: the latest revision as soon as it is above <paramref name="since"/>, at the latest after <paramref name="timeout"/>.</summary>
+    /// <summary>The long poll: the latest revision as soon as it is not <paramref name="since"/> any more (a change, or the data deleted), at the latest after <paramref name="timeout"/>.</summary>
     public static Task<long> WaitAsync(AppDbContext db, Actor actor, string app, long since, TimeSpan timeout, CancellationToken ct)
     {
         Require(actor, app);

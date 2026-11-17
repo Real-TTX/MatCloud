@@ -38,29 +38,34 @@ public static class Revisions
         => await ScalarAsync(db, $"SELECT nextval('\"{sequence}\"')", ct);
 
     /// <summary>
-    /// Waits for a change of the stream above <paramref name="since"/>: answers at once when <paramref name="latest"/> is above it already, else as
-    /// soon as a change is committed, at the latest after <paramref name="timeout"/>. The signal is taken BEFORE the latest revision is read, so no change
-    /// between the read and the wait is lost.
+    /// Waits for a change of the stream: answers at once when <paramref name="latest"/> is not <paramref name="since"/> (above it: a change; below it:
+    /// the data was deleted), else as soon as a change is committed, at the latest after <paramref name="timeout"/>. The signal is taken BEFORE the latest
+    /// revision is read, so no change between the read and the wait is lost. A wake-up that brought nothing new keeps waiting for the rest of the time:
+    /// the signals are in memory and named by app and account id, which are not unique across databases (the tests run many at once), and a notify
+    /// without a new revision is no change. The same rule as the clips' long poll (ClipService.WaitAsync).
     /// </summary>
     public static async Task<long> WaitAsync(string stream, long since, Func<Task<long>> latest, TimeSpan timeout, CancellationToken ct)
     {
-        var signal = RevisionSignals.Next(stream);
-        var current = await latest();
-        if (current > since)
+        var deadline = DateTime.UtcNow + timeout;
+        while (true)
         {
-            return current;
-        }
+            var signal = RevisionSignals.Next(stream);
+            var current = await latest();
+            var left = deadline - DateTime.UtcNow;
+            if (current != since || left <= TimeSpan.Zero)
+            {
+                return current;
+            }
 
-        try
-        {
-            await signal.WaitAsync(timeout, ct);
+            try
+            {
+                await signal.WaitAsync(left, ct);
+            }
+            catch (TimeoutException)
+            {
+                return await latest();
+            }
         }
-        catch (TimeoutException)
-        {
-            return current;
-        }
-
-        return await latest();
     }
 
     /// <summary>The key of the advisory lock of a stream: the account in the low bits, a hash of the app above, in a range of its own.</summary>

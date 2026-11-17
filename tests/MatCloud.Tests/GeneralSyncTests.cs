@@ -116,6 +116,33 @@ public sealed class GeneralSyncTests
     }
 
     [DbFact]
+    public async Task AWakeUpWithoutANewRevisionKeepsTheLongPollWaiting()
+    {
+        // The signals are in memory and named "app/account id": another database with an account of the same id (the tests run in parallel)
+        // wakes the same stream. That is no change here: the long poll waits on (it used to answer at once, with nothing new).
+        await using var test = await TestDatabase.CreateAsync();
+        var anna = await test.AddUserAsync("anna");
+        var mac = Device(anna, name: "Mac", id: 2);
+        var waiting = SyncService.WaitAsync(test.NewContext(), mac, CloudApps.Note, 0, TimeSpan.FromSeconds(20), CancellationToken.None);
+        await Task.Delay(200);
+        for (var round = 0; round < 3; round++)
+        {
+            RevisionSignals.Notify(Revisions.Stream(CloudApps.Note, anna.Id));
+            await Task.Delay(100);
+        }
+
+        Assert.False(waiting.IsCompleted);
+        await SyncService.PushAsync(test.NewContext(), Device(anna), CloudApps.Note, new SyncPushRequest([Item("a", "b")]));
+        var latest = await waiting.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(latest > 0);
+
+        // the data deleted: the revision falls below "since", the long poll ends at once (the device then finds itself signed out)
+        await AppService.DeleteDataAsync(test.NewContext(), anna.Id, CloudApps.Note, CancellationToken.None);
+        var afterDelete = SyncService.WaitAsync(test.NewContext(), mac, CloudApps.Note, latest, TimeSpan.FromSeconds(20), CancellationToken.None);
+        Assert.Equal(0, await afterDelete.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [DbFact]
     public async Task DeletingTheDataOfAnAppSignsItsDevicesOut()
     {
         await using var test = await TestDatabase.CreateAsync();
