@@ -88,6 +88,37 @@ public sealed class ApiTests
     }
 
     [DbFact]
+    public async Task AnAppInstalledByTheLauncherSignsInWithItsHandOver()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        await test.AddUserAsync("anna", password: "anna-password");
+        var data = Directory.CreateTempSubdirectory("matcloud-test-").FullName;
+        await using var app = App(test, data);
+        var handler = app.Server.CreateHandler();
+        const string server = "http://localhost";
+
+        using var anonymous = new MatCloudClient(server, null, "ThixLauncher/1.0.0 (windows)", handler);
+        var login = await anonymous.LoginAsync(new DeviceLoginRequest("anna", "anna-password", "ANNA-PC", "windows", "1.0.0", CloudApps.Launcher), CancellationToken.None);
+        using var launcher = new MatCloudClient(server, login.Token, "ThixLauncher/1.0.0 (windows)", handler);
+        var start = await launcher.HandOffAsync(new DeviceHandoffRequest(CloudApps.Clip, "0.1.12"), CancellationToken.None);
+
+        using var fresh = new MatCloudClient(server, null, "ThixClip/0.1.12 (windows)", handler);
+        var handoff = new DeviceHandoff(server, start.PollToken, "anna", DateTimeOffset.UtcNow.AddSeconds(start.ExpiresInSeconds));
+        var clipLogin = (await fresh.RedeemHandoffAsync(handoff, CancellationToken.None))!;
+        Assert.Equal((CloudApps.Clip, "ANNA-PC"), (clipLogin.Account.App, clipLogin.Account.DeviceName));
+        Assert.Null(await fresh.RedeemHandoffAsync(handoff, CancellationToken.None));
+
+        using var clip = new MatCloudClient(server, clipLogin.Token, "ThixClip/0.1.12 (windows)", handler);
+        Assert.Equal(CloudApps.Clip, (await clip.GetAccountAsync(CancellationToken.None)).App);
+
+        // only the launcher hands over (403); the launcher cannot hand over to an unknown app (400)
+        var refused = await Assert.ThrowsAsync<CloudException>(() => clip.HandOffAsync(new DeviceHandoffRequest(CloudApps.Note, "1"), CancellationToken.None));
+        Assert.True(refused.IsForbidden);
+        var unknown = await Assert.ThrowsAsync<CloudException>(() => launcher.HandOffAsync(new DeviceHandoffRequest("unknown", "1"), CancellationToken.None));
+        Assert.Equal(("app", HttpStatusCode.BadRequest), (unknown.Field, unknown.StatusCode));
+    }
+
+    [DbFact]
     public async Task PagesNeedASignInAndTheSetupComesFirst()
     {
         await using var test = await TestDatabase.CreateAsync();

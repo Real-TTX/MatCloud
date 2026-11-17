@@ -28,6 +28,12 @@ public static class CloudContract
     /// <summary>POST: asks whether the code was confirmed in the browser (every <see cref="DeviceLinkStart.IntervalSeconds"/>).</summary>
     public const string DeviceLinkPoll = "/api/v1/devices/link/poll";
 
+    /// <summary>
+    /// POST (only a device of <see cref="CloudApps.Launcher"/>): ThixLauncher hands its sign-in to an app it installs on its computer
+    /// (<see cref="DeviceHandoffRequest"/> → <see cref="DeviceHandoffStart"/>; the hand-over goes through <see cref="CloudHandoff"/>).
+    /// </summary>
+    public const string DeviceHandoff = "/api/v1/devices/handoff";
+
     /// <summary>POST: the device signs itself out; its token ends (204).</summary>
     public const string DeviceLogout = "/api/v1/devices/logout";
 

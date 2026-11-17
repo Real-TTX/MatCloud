@@ -93,6 +93,96 @@ public sealed class DeviceTests
     }
 
     [DbFact]
+    public async Task TheLauncherHandsItsSignInToAnAppItInstallsOnce()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        await test.AddUserAsync("anna", password: "anna-password");
+        var launcher = (await DeviceService.LoginAsync(test.Db, new DeviceLoginRequest("anna", "anna-password", "ANNA-PC", "Windows", "1.0", CloudApps.Launcher), "10.0.0.5", "test")).Value!;
+        var actor = (await DeviceService.AuthenticateAsync(test.NewContext(), launcher.Token))!.Actor;
+
+        var handoff = await DeviceLinkService.HandOffAsync(test.NewContext(), actor, new DeviceHandoffRequest(CloudApps.Clip, "0.1.12"), "10.0.0.5");
+        Assert.True(handoff.Ok);
+        Assert.Equal((int)TimeSpan.FromDays(1).TotalSeconds, handoff.Value!.ExpiresInSeconds);
+
+        // the code of a hand-over cannot be confirmed in the browser; no device until the app fetches it
+        Assert.Empty(await test.NewContext().DeviceLinks.Where(l => l.State == DeviceLink.Pending).ToListAsync());
+        Assert.Equal(1, await test.NewContext().Devices.CountAsync());
+
+        var poll = await DeviceLinkService.PollAsync(test.NewContext(), handoff.Value.PollToken, "test");
+        Assert.Equal(DeviceLinkState.Approved, poll.State);
+        Assert.Equal("anna", poll.Login!.Account.UserName);
+        var clip = (await DeviceService.AuthenticateAsync(test.NewContext(), poll.Login.Token))!;
+        Assert.Equal((CloudApps.Clip, "ANNA-PC"), (clip.App, clip.Name));
+        Assert.Equal("windows", (await test.NewContext().Devices.SingleAsync(d => d.Id == clip.DeviceId)).Platform);
+
+        // once
+        Assert.Equal(DeviceLinkState.Expired, (await DeviceLinkService.PollAsync(test.NewContext(), handoff.Value.PollToken, "test")).State);
+
+        // a day later it is gone
+        var late = (await DeviceLinkService.HandOffAsync(test.NewContext(), actor, new DeviceHandoffRequest(CloudApps.Note, "1.1.0"), null)).Value!;
+        await using (var db = test.NewContext())
+        {
+            await db.DeviceLinks.Where(l => l.App == CloudApps.Note).ExecuteUpdateAsync(s => s.SetProperty(l => l.ExpiresDate, DateTime.UtcNow.AddMinutes(-1)));
+        }
+
+        Assert.Equal(DeviceLinkState.Expired, (await DeviceLinkService.PollAsync(test.NewContext(), late.PollToken, "test")).State);
+
+        // only the launcher hands over, never to itself, never an unknown app
+        await Assert.ThrowsAsync<NotAllowedException>(() => DeviceLinkService.HandOffAsync(test.NewContext(), clip.Actor, new DeviceHandoffRequest(CloudApps.Note, "1"), null));
+        await Assert.ThrowsAsync<NotAllowedException>(() => DeviceLinkService.HandOffAsync(test.NewContext(), new Actor(actor.UserId, false), new DeviceHandoffRequest(CloudApps.Note, "1"), null));
+        Assert.Equal("app", (await DeviceLinkService.HandOffAsync(test.NewContext(), actor, new DeviceHandoffRequest(CloudApps.Launcher, "1"), null)).Field);
+        Assert.Equal("app", (await DeviceLinkService.HandOffAsync(test.NewContext(), actor, new DeviceHandoffRequest("unknown", "1"), null)).Field);
+    }
+
+    [DbFact]
+    public async Task AHandOverToAnAppThatIsSwitchedOffBeforeItIsFetchedGivesNoToken()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var admin = await test.AddUserAsync("admin", admin: true, password: "admin-password");
+        var launcher = (await DeviceService.LoginAsync(test.Db, new DeviceLoginRequest("admin", "admin-password", "PC", "macos", "1", CloudApps.Launcher), null, "test")).Value!;
+        var actor = (await DeviceService.AuthenticateAsync(test.NewContext(), launcher.Token))!.Actor;
+        var handoff = (await DeviceLinkService.HandOffAsync(test.NewContext(), actor, new DeviceHandoffRequest(CloudApps.Note, "1"), null)).Value!;
+
+        Assert.True((await AppService.SetEnabledAsync(test.NewContext(), new Actor(admin.Id, true), CloudApps.Note, false)).Ok);
+        Assert.Equal(DeviceLinkState.Expired, (await DeviceLinkService.PollAsync(test.NewContext(), handoff.PollToken, "test")).State);
+        Assert.Equal("app", (await DeviceLinkService.HandOffAsync(test.NewContext(), actor, new DeviceHandoffRequest(CloudApps.Note, "1"), null)).Field);
+    }
+
+    [Fact]
+    public void A_hand_over_waits_in_a_file_per_app_until_it_is_used_or_expired()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "matcloud-handoff-" + Guid.NewGuid().ToString("N"));
+        var before = CloudHandoff.Folder;
+        CloudHandoff.Folder = folder;
+        try
+        {
+            Assert.Null(CloudHandoff.Find(CloudApps.Clip));
+            var handoff = new DeviceHandoff("https://cloud.example.com", Guid.NewGuid().ToString("D"), "anna", DateTimeOffset.UtcNow.AddDays(1));
+            CloudHandoff.Write(CloudApps.Clip, handoff);
+            Assert.True(CloudHandoff.Exists(CloudApps.Clip));
+            Assert.Equal(handoff, CloudHandoff.Find(CloudApps.Clip));
+            Assert.Null(CloudHandoff.Find(CloudApps.Note));
+
+            CloudHandoff.Remove(CloudApps.Clip);
+            Assert.False(CloudHandoff.Exists(CloudApps.Clip));
+
+            CloudHandoff.Write(CloudApps.Note, handoff with { ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1) });
+            Assert.Null(CloudHandoff.Find(CloudApps.Note));
+            Assert.False(CloudHandoff.Exists(CloudApps.Note));
+
+            File.WriteAllText(Path.Combine(folder, CloudApps.Note + ".json"), "{ kaputt");
+            Assert.Null(CloudHandoff.Find(CloudApps.Note));
+            Assert.False(CloudHandoff.Exists(CloudApps.Note));
+            Assert.Throws<ArgumentException>(() => CloudHandoff.Find("../evil"));
+        }
+        finally
+        {
+            CloudHandoff.Folder = before;
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [DbFact]
     public async Task ASwitchedOffAppSignsNoDeviceIn()
     {
         await using var test = await TestDatabase.CreateAsync();

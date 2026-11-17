@@ -18,11 +18,16 @@ public sealed record DeviceLinkView(string Code, string App, string DeviceName, 
 /// The sign-in of a device in the browser (like the device flow of OAuth): the device asks for a code (<see cref="StartAsync"/>), shows it and opens
 /// the page Connect; the person signs in there (with a password or through MatIdentity), compares the code and confirms it (<see cref="ApproveAsync"/>);
 /// the device asks every few seconds (<see cref="PollAsync"/>) and gets its token once. A code lives ten minutes and works once.
+/// ThixLauncher skips the browser for the apps it installs (<see cref="HandOffAsync"/>): a sign-in confirmed by its device, fetched by the app with
+/// the same poll.
 /// </summary>
 public static class DeviceLinkService
 {
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
     public const int PollSeconds = 2;
+
+    /// <summary>How long the sign-in ThixLauncher leaves for an app waits for the app's first start.</summary>
+    public static readonly TimeSpan HandoffLifetime = TimeSpan.FromDays(1);
 
     /// <summary>The letters of a code: no 0/O, 1/I/L, 5/S, 8/B, 2/Z that look alike.</summary>
     private const string Alphabet = "ACDEFGHJKMNPQRTUVWXY34679";
@@ -76,9 +81,15 @@ public static class DeviceLinkService
         }
 
         var link = await db.DeviceLinks.FirstOrDefaultAsync(l => l.Token == token, ct);
-        if (link is null || link.State == DeviceLink.Fetched || (link.State == DeviceLink.Pending && link.ExpiresDate < DateTime.UtcNow))
+        var waits = link is not null && (link.State == DeviceLink.Pending || (link.State == DeviceLink.Approved && link.DeviceId is null));
+        if (link is null || link.State == DeviceLink.Fetched || (waits && link.ExpiresDate < DateTime.UtcNow))
         {
             return new DeviceLinkPollResponse(DeviceLinkState.Expired);
+        }
+
+        if (link.State == DeviceLink.Approved && link.DeviceId is null)
+        {
+            return await FetchHandoffAsync(db, link, serverVersion, ct);
         }
 
         switch (link.State)
@@ -163,6 +174,90 @@ public static class DeviceLinkService
         link.UserId = actor.UserId;
         await db.SaveChangesAsync(ct);
         return Outcome.Success();
+    }
+
+    /// <summary>
+    /// ThixLauncher hands its sign-in to an app it installs on its computer: a sign-in for the app, confirmed for the launcher's account, with the
+    /// launcher's device name and platform. The app fetches it once with <see cref="PollAsync"/> within <see cref="HandoffLifetime"/>; its device
+    /// is made only then. Only a device of ThixLauncher may do this, and only for another app that is switched on.
+    /// </summary>
+    public static async Task<Outcome<DeviceHandoffStart>> HandOffAsync(AppDbContext db, Actor actor, DeviceHandoffRequest? request, string? ipAddress, CancellationToken ct = default)
+    {
+        if (actor.DeviceId is not { } deviceId || actor.App != CloudApps.Launcher)
+        {
+            throw new NotAllowedException($"Nur {CloudApps.NameOf(CloudApps.Launcher)} gibt seine Anmeldung an andere Apps weiter.");
+        }
+
+        var app = request?.App ?? string.Empty;
+        if (app == CloudApps.Launcher)
+        {
+            return Outcome<DeviceHandoffStart>.Fail($"{CloudApps.NameOf(CloudApps.Launcher)} ist schon angemeldet.", "app");
+        }
+
+        var launcher = await db.Devices.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deviceId, ct);
+        if (launcher is null)
+        {
+            return Outcome<DeviceHandoffStart>.Missing();
+        }
+
+        var facts = new DeviceFacts(app, launcher.Name, launcher.Platform, request?.AppVersion ?? string.Empty);
+        if (DeviceService.Problem(facts) is { } problem)
+        {
+            return Outcome<DeviceHandoffStart>.Fail(problem.Message, problem.Field);
+        }
+
+        if (!await AppService.IsEnabledAsync(db, app, ct))
+        {
+            return Outcome<DeviceHandoffStart>.Fail(AppService.SwitchedOffText(app), "app");
+        }
+
+        var now = DateTime.UtcNow;
+        string code;
+        do
+        {
+            code = NewCode();
+        }
+        while (await db.DeviceLinks.AnyAsync(l => l.Code == code && l.ExpiresDate > now, ct));
+
+        var link = new DeviceLink
+        {
+            Code = code,
+            App = app,
+            DeviceName = launcher.Name,
+            Platform = launcher.Platform,
+            AppVersion = Clip(facts.AppVersion.Trim(), 60),
+            IpAddress = ipAddress is null ? null : Clip(ipAddress, 64),
+            ExpiresDate = now + HandoffLifetime,
+            State = DeviceLink.Approved,
+            UserId = actor.UserId,
+        };
+        db.DeviceLinks.Add(link);
+        await db.SaveChangesAsync(ct);
+        return Outcome<DeviceHandoffStart>.Success(new DeviceHandoffStart(link.Token.ToString("D"), (int)HandoffLifetime.TotalSeconds));
+    }
+
+    /// <summary>The app fetches the sign-in ThixLauncher left for it: its device is made now (the account still active, the app still on).</summary>
+    private static async Task<DeviceLinkPollResponse> FetchHandoffAsync(AppDbContext db, DeviceLink link, string serverVersion, CancellationToken ct)
+    {
+        // claimed in one statement: two polls at the same moment make one device
+        var claimed = await db.DeviceLinks.Where(l => l.Id == link.Id && l.State == DeviceLink.Approved && l.DeviceId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.State, DeviceLink.Fetched), ct);
+        if (claimed == 0)
+        {
+            return new DeviceLinkPollResponse(DeviceLinkState.Expired);
+        }
+
+        link.State = DeviceLink.Fetched;
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == link.UserId && u.IsActive, ct);
+        if (user is null || !await AppService.IsEnabledAsync(db, link.App, ct))
+        {
+            return new DeviceLinkPollResponse(DeviceLinkState.Expired);
+        }
+
+        var device = await DeviceService.CreateAsync(db, user, new DeviceFacts(link.App, link.DeviceName, link.Platform, link.AppVersion), link.IpAddress, ct);
+        link.DeviceId = device.Id;
+        await db.SaveChangesAsync(ct);
+        return new DeviceLinkPollResponse(DeviceLinkState.Approved, DeviceService.Response(user, device, serverVersion));
     }
 
     /// <summary>Removes sign-ins that ended more than a day ago (the housekeeping).</summary>

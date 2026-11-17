@@ -27,8 +27,23 @@ version, then the SHA-256 of each copied file with LF line ends). The app's test
 | `POST /api/v1/devices/login` | `DeviceLoginRequest { userName, password, deviceName, platform, appVersion, app }` → `DeviceLoginResponse { token, deviceId, account }`. 401 wrong name/password, 403 app off, 400 bad device name / unknown app; 10 attempts a minute per address (429). The same device name + platform + app signing in again replaces its old entry. Only local accounts have a password. |
 | `POST /api/v1/devices/link` | the **sign-in in the browser** (every account, also one of MatIdentity): `DeviceLinkRequest { deviceName, platform, appVersion, app }` → `DeviceLinkStart { code: "ABCD-EFGH", verificationUrl, pollToken, expiresInSeconds: 600, intervalSeconds: 2 }`. The app shows the code and opens `verificationUrl` (`<public address>/Connect?code=…`). |
 | `POST /api/v1/devices/link/poll` | `{ pollToken }` → `DeviceLinkPollResponse { state: Pending \| Approved \| Denied \| Expired, login? }`. `Approved` carries the `DeviceLoginResponse` exactly once. `MatCloudClient.WaitForLinkAsync` polls until it is decided. |
+| `POST /api/v1/devices/handoff` | only a device of `launcher`: `DeviceHandoffRequest { app, appVersion }` → `DeviceHandoffStart { pollToken, expiresInSeconds: 86400 }`, a sign-in for another app on the launcher's computer, already confirmed (see below). 403 for any other device, 400 (`field` = `app`) for the launcher itself, an unknown app or one that is switched off. |
 | `POST /api/v1/devices/logout` | ends the token (204) |
 | `GET /api/v1/account` | `AccountInfo { userName, displayName, deviceName, app, serverVersion }` |
+
+### The hand-over of ThixLauncher
+
+ThixLauncher signs in once; every app it installs is signed in too, without a browser:
+
+1. Before it runs the app's setup, the launcher asks `POST /api/v1/devices/handoff` and leaves the answer for the app with
+   `CloudHandoff.Write(app, new DeviceHandoff(serverUrl, pollToken, userName, expiresAt))`: one file per app in the local application data of the
+   user (`%LOCALAPPDATA%\Thix\MatCloud\handoff\<app>.json`, `~/Library/Application Support/Thix/MatCloud/handoff/<app>.json`, only the user may read
+   it). When the cloud cannot be reached, the app is installed anyway, just without the hand-over.
+2. At its start, while it is not connected, the app looks for it (`CloudHandoff.Find(app)`: null when there is none, an expired or unreadable one is
+   removed) and fetches its token with `MatCloudClient.RedeemHandoffAsync(handoff)` (the poll of the browser sign-in; the device is made now, with the
+   launcher's device name and platform). It removes the file (`CloudHandoff.Remove`) when it got the token or null (used or expired), and keeps it
+   when the cloud could not be asked (the next start tries again).
+3. The hand-over works once and for a day; an app started later signs in as usual. Tests set `CloudHandoff.Folder` to a folder of their own.
 
 ## The general sync (every app without a module)
 

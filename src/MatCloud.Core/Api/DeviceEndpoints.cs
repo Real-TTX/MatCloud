@@ -33,7 +33,9 @@ public static class DeviceEndpoints
             await DeviceService.LogoutAsync(db, ActorOf(http));
             return Results.NoContent();
         });
-        device.MapGet(CloudContract.Account, async (HttpContext http, AppDbContext db) => Answer(await AccountService.InfoAsync(db, ActorOf(http), ServerVersion)));
+        device.MapPost(CloudContract.DeviceHandoff, async (HttpContext http, AppDbContext db, DeviceHandoffRequest? request) =>
+            Answer(await DeviceLinkService.HandOffAsync(db, ActorOf(http), request, ClientAddress(http), http.RequestAborted)));
+        device.MapGet(CloudContract.Account,async (HttpContext http, AppDbContext db) => Answer(await AccountService.InfoAsync(db, ActorOf(http), ServerVersion)));
 
         // The general sync: only the apps without a module of their own (a module has its own routes).
         var sync = device.MapGroup(string.Empty).AddEndpointFilter(GeneralSyncAsync);
