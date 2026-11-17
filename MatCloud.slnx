@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/src/Apps/">
     <Project Path="src/Apps/MatCloud.Apps.Clip/MatCloud.Apps.Clip.csproj" />
+    <Project Path="src/Apps/MatCloud.Apps.Note/MatCloud.Apps.Note.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MatCloud.Tests/MatCloud.Tests.csproj" />

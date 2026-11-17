@@ -40,6 +40,12 @@ public interface ICloudModule
     /// <summary>The largest body of a request the module takes (pictures), or null for the default.</summary>
     long? MaxRequestBodyBytes { get; }
 
+    /// <summary>
+    /// True for a module that is a web client of the general sync (ThixNote): its devices keep using <c>/api/v1/sync</c>, and its pages read and write the
+    /// same items. False (the default) for a module with an API of its own (ThixClip): its app has no general sync.
+    /// </summary>
+    bool UsesGeneralSync => false;
+
     /// <summary>Its services (most modules need none: the business layer is static).</summary>
     void AddServices(IServiceCollection services);
 
@@ -87,6 +93,9 @@ public static class CloudModules
 
     public static ICloudModule? Find(string? appId) => _all.FirstOrDefault(m => m.AppId == appId);
 
-    /// <summary>True when the app has a module (pages and an API of its own); false: it keeps its data in the general sync.</summary>
+    /// <summary>True when the app has a module (pages in the browser); false: it keeps its data in the general sync and has no pages.</summary>
     public static bool HasModule(string? appId) => Find(appId) is not null;
+
+    /// <summary>True when the app's devices use the general sync: no module, or a module that is a web client of it (ThixNote).</summary>
+    public static bool UsesGeneralSync(string? appId) => Find(appId) is not { UsesGeneralSync: false };
 }

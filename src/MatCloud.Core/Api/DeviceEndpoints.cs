@@ -243,7 +243,7 @@ public static class DeviceEndpoints
     private static async ValueTask<object?> GeneralSyncAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var device = (DeviceIdentity)context.HttpContext.Items[DeviceItem]!;
-        return CloudModules.HasModule(device.App)
+        return !CloudModules.UsesGeneralSync(device.App)
             ? Error(StatusCodes.Status403Forbidden, $"{CloudApps.NameOf(device.App)} hat in der MatCloud eine eigene Schnittstelle.")
             : await next(context);
     }

@@ -40,6 +40,7 @@ public sealed class MatCloudPlatform(AppDbContext db, MatPlatformSettings settin
         // What it adds to the home screen of a shell (Mattiverse).
         o.Launcher("matcloud", "MatCloud", Icon, "/");
         o.QuickAction("matcloud", T("Zwischenablage", "Clipboard"), "clock", url: "/Clip");
+        o.QuickAction("matcloud", T("Notizen", "Notes"), "file-text", url: "/Note");
         o.QuickAction("matcloud", T("Apps und Daten", "Apps and data"), "grid", url: "/Apps");
         o.QuickAction("matcloud", T("Gerät verbinden", "Connect a device"), "link", url: "/Connect");
         o.Widget(new MatWidget("devices", T("Geräte", "Devices"), MatWidgetKinds.Tiles, "medium")

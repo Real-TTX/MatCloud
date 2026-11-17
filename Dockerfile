@@ -17,6 +17,7 @@ COPY ["global.json", "Directory.Build.props", "Directory.Build.targets", "./"]
 COPY ["src/MatCloud.Contract/MatCloud.Contract.csproj", "src/MatCloud.Contract/"]
 COPY ["src/MatCloud.Core/MatCloud.Core.csproj", "src/MatCloud.Core/"]
 COPY ["src/Apps/MatCloud.Apps.Clip/MatCloud.Apps.Clip.csproj", "src/Apps/MatCloud.Apps.Clip/"]
+COPY ["src/Apps/MatCloud.Apps.Note/MatCloud.Apps.Note.csproj", "src/Apps/MatCloud.Apps.Note/"]
 COPY ["src/MatCloud/MatCloud.csproj", "src/MatCloud/"]
 RUN dotnet restore "src/MatCloud/MatCloud.csproj"
 

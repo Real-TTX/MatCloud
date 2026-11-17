@@ -30,7 +30,7 @@ public sealed class DetailModel : AppPageModel
 
         App = outcome.Value!;
         Devices = (await DeviceService.ListAsync(Db, Actor, null, Id, "seen", true)).Items;
-        if (!CloudModules.HasModule(Id))
+        if (CloudModules.UsesGeneralSync(Id))
         {
             Collections = await SyncService.CollectionsAsync(Db, Actor, Id, HttpContext.RequestAborted);
         }

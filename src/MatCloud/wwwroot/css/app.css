@@ -136,3 +136,27 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highl
 .mc-plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--mat-space-2); }
 .mc-plain-list li { display: flex; align-items: center; gap: var(--mat-space-2); flex-wrap: wrap; }
 .mc-plain-list .mat-icon { width: 1rem; height: 1rem; color: var(--mat-text-muted); }
+
+/* ---- The module ThixNote: the notes ------------------------------------------------------------------------------- */
+.mc-note-body { overflow-wrap: anywhere; }
+.mc-note-text { margin: 0; white-space: pre-wrap; font-family: var(--mat-mono); font-size: var(--mat-fs-sm); line-height: 1.6; }
+.mc-note-editor { width: 100%; min-height: 24rem; line-height: 1.6; resize: vertical; }
+.mc-markdown { line-height: 1.65; }
+.mc-markdown > :first-child { margin-top: 0; }
+.mc-markdown > :last-child { margin-bottom: 0; }
+.mc-markdown h1, .mc-markdown h2, .mc-markdown h3 { line-height: 1.25; margin: 1.4em 0 .5em; }
+.mc-markdown h1 { font-size: var(--mat-fs-xl); }
+.mc-markdown h2 { font-size: var(--mat-fs-lg); }
+.mc-markdown p, .mc-markdown ul, .mc-markdown ol, .mc-markdown blockquote, .mc-markdown pre, .mc-markdown table { margin: 0 0 1em; }
+.mc-markdown ul, .mc-markdown ol { padding-left: 1.4rem; }
+.mc-markdown li > input[type=checkbox] { margin-right: var(--mat-space-2); }
+.mc-markdown blockquote { padding-left: var(--mat-space-4); border-left: 3px solid var(--mat-border); color: var(--mat-text-muted); }
+.mc-markdown code { padding: .1em .35em; border-radius: var(--mat-radius); background: var(--mat-surface-2); }
+.mc-markdown pre { padding: var(--mat-space-3) var(--mat-space-4); border-radius: var(--mat-radius); background: var(--mat-surface-2); overflow-x: auto; }
+.mc-markdown pre code { padding: 0; background: none; }
+.mc-markdown table { border-collapse: collapse; }
+.mc-markdown th, .mc-markdown td { border: 1px solid var(--mat-border); padding: var(--mat-space-1) var(--mat-space-3); text-align: left; }
+.mc-markdown hr { border: 0; border-top: 1px solid var(--mat-border); margin: 1.5em 0; }
+.mc-markdown a { color: var(--mat-accent-text); }
+.mc-protected .mat-card { margin-bottom: var(--mat-space-4); }
+.mc-crypt-error { color: var(--mat-danger-text); }

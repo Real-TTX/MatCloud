@@ -9,6 +9,9 @@ devices in here and keeps its data the same on every PC and Mac of an account. T
 
 - **Apps with a module** (`src/Apps/*`, an `ICloudModule`): their own tables, their own API for their devices and their own pages in the browser.
   The first is **ThixClip** (`MatCloud.Apps.Clip`): the clipboard history, searchable (also the text recognised in pictures), live in the browser.
+  The second is **ThixNote** (`MatCloud.Apps.Note`), a module of another kind: a *web client of the general sync* (`UsesGeneralSync`): ThixNote's
+  devices keep syncing through `/api/v1/sync`, and the pages read and write the same items (list, folders, Markdown view, write, rename, delete;
+  protected notes are decrypted and encrypted only in the browser with WebCrypto, in ThixNote's format).
 - **Apps in the general sync** (everything else, ThixNote first): no code here. They keep items of their own choosing (collection + key + data) and
   MatCloud keeps them in step (last writer wins, tombstones, revisions, long poll).
 
@@ -78,6 +81,11 @@ src/Apps/MatCloud.Apps.Clip (Razor class library) the module ThixClip: ClipModul
                             sequence ClipRevision; db.Clips etc. as extension members); Business/ (ClipService: browser, ClipSyncService: devices,
                             ClipSettingsService: retention, ClipContent: hash/links, ImageTools: SkiaSharp); Api/ClipEndpoints (/api/v1/clip for ThixClip
                             devices, /live/clip for the pages); Pages/Clip (Verlauf, Eintrag, Einstellungen), Pages/Shared/_ClipMenu; wwwroot/js/clip-live.js
+src/Apps/MatCloud.Apps.Note (Razor class library) the module ThixNote, no tables: NoteModule (UsesGeneralSync); Business/NoteService (the notes on the
+                            items of the general sync in ThixNote's format: collection notes {path, content | bytes}, hash = SHA-256 hex of the text or
+                            the bytes, collection folders; stale texts refused by the hash the page opened with); Api/NoteEndpoints (/live/note);
+                            Pages/Note (Index, View: Markdig without HTML, Edit), Pages/Shared/_NoteMenu (folders); wwwroot/js note-live.js,
+                            note-crypt.js ("QNSEC1" | iterations | salt | nonce | tag | ciphertext, PBKDF2-SHA256 + AES-256-GCM, checked before it is sent)
 src/MatCloud                the host: Program (composition: modules, MatPlatform, MatIdentity, cookie, rate limit, body limit), Modules.cs (the list of
                             modules), Infrastructure (health check, migrations, design-time factory, setup redirect, forced password change, security
                             headers, housekeeping every hour, SeedAdminAsync: MATCLOUD_ADMIN_PASSWORD makes the first administrator), Platform/ (MatCloudPlatform: the MatApiDefinition, state, configure, actions, health;

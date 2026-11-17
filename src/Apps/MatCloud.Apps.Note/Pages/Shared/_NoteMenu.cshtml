@@ -1,0 +1,28 @@
+@model bool
+@using MatCloud.Core.Data
+@inject AppDbContext Db
+@inject CurrentUser Me
+@*
+    The menu of the notes (the module ThixNote), like the menu of the app: a new note first, all notes, then the folders of the top level.
+    Model: whether it is the menu shown.
+*@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    var folder = Context.Request.Query["folder"].ToString();
+    var onList = path.Equals("/Note", StringComparison.OrdinalIgnoreCase);
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    var all = onList && folder.Length == 0;
+    var folders = Model ? (await NoteService.FoldersAsync(Db, Me.Actor, Context.RequestAborted)).Where(f => !f.Contains('/')).ToList() : [];
+}
+<nav class="mat-nav__scroll" aria-label="Notizen" data-nav-panel="@CloudApps.Note" hidden="@(!Model)">
+    <ul class="mat-nav__list">
+        <li><a class="mat-nav__item mat-nav__item--primary" href="/Note/Edit">@Ui.Icon("plus")<span>Neue Notiz</span></a></li>
+        <li><a class="@Cls(all)" href="/Note" aria-current="@Cur(all)">@Ui.Icon("file-text")<span>Alle Notizen</span></a></li>
+        @foreach (var f in folders)
+        {
+            var active = onList && string.Equals(folder, f, StringComparison.OrdinalIgnoreCase);
+            <li><a class="@Cls(active)" href="/Note?folder=@Uri.EscapeDataString(f)" aria-current="@Cur(active)">@Ui.Icon("folder")<span>@f</span></a></li>
+        }
+    </ul>
+</nav>

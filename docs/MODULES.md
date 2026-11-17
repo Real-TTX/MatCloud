@@ -15,6 +15,7 @@ A Razor class library under `src/Apps/MatCloud.Apps.<Name>` that references `Mat
 | `AppId` | the app of the contract (`CloudApps.Clip`); the app id must be in `CloudApps` first |
 | `Home`, `Icon`, `MenuTitle`, `MenuPartial` | its pages in the browser (`/Clip`), its icon of the sprite, the title of its menu in the switcher, the partial that draws its menu entries (in the module's `Pages/Shared`) |
 | `MaxRequestBodyBytes` | the largest body it takes (pictures), or null |
+| `UsesGeneralSync` | true for a module that is a web client of the general sync (ThixNote: its devices keep `/api/v1/sync`, its pages read and write the same items through `SyncService`, no tables); false (the default) for a module with an API of its own (ThixClip) |
 | `AddServices` | services, if any (the business layer is static) |
 | `ConfigureModel` | its tables and sequences in the one `AppDbContext` (relational rules: PascalCase, `Id`, audit columns, `UpdateState`) |
 | `MapEndpoints` | its device routes (`DeviceEndpoints.ForApp(routes, AppId)`: protocol header, valid token, a device of this app, the app switched on) under `/api/v1/<app>/…`, and what its pages fetch under `/live/<app>/…` (`RequireAuthorization`) |

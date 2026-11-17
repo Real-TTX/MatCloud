@@ -211,7 +211,7 @@ public static class SyncService
     /// <summary>A device of another app, and an app with a module of its own, may not use the general sync of <paramref name="app"/>.</summary>
     private static void Require(Actor actor, string app)
     {
-        if (!actor.MayUse(app) || CloudModules.HasModule(app) || !CloudApps.IsKnown(app))
+        if (!actor.MayUse(app) || !CloudModules.UsesGeneralSync(app) || !CloudApps.IsKnown(app))
         {
             throw new NotAllowedException("Dieses Gerät darf diese Daten nicht lesen.");
         }

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The ThixNote module of MatCloud: the notes of an account in the browser. ThixNote keeps its notes in the general sync (app note, collections
+    "notes" and "folders"); this module is a web client of the same items (UsesGeneralSync): its pages list, show, write, rename, move and delete them, and
+    the devices see every change. A protected note (.txts) is decrypted and encrypted only in the browser (WebCrypto); the server never sees its text.
+  -->
+  <PropertyGroup>
+    <RootNamespace>MatCloud.Apps.Note</RootNamespace>
+    <AssemblyName>MatCloud.Apps.Note</AssemblyName>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <MatCloudWebUsings>true</MatCloudWebUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The same Markdown engine as ThixNote's export: the preview looks like the one in the app. -->
+    <PackageReference Include="Markdig" Version="0.45.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MatCloud.Core\MatCloud.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MatCloud.Tests" />
+  </ItemGroup>
+
+</Project>

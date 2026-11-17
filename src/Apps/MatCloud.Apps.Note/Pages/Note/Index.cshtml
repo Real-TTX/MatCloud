@@ -1,0 +1,87 @@
+@page "/Note"
+@model MatCloud.Apps.Note.Pages.Note.IndexModel
+@{
+    ViewData["Title"] = Model.Folder ?? "Notizen";
+    ViewData["PageSub"] = Model.Folder is null ? "Die Notizen von ThixNote – auf allen Geräten gleich." : "Ein Ordner deiner Notizen.";
+    ViewData["Crumbs"] = Model.Folder is null
+        ? new List<(string, string?)> { ("Notizen", null), ("Alle Notizen", null) }
+        : new List<(string, string?)> { ("Notizen", "/Note"), (Model.Folder, null) };
+    var newHref = Model.Folder is null ? "/Note/Edit" : "/Note/Edit?folder=" + Uri.EscapeDataString(Model.Folder);
+}
+
+@section TopActions {
+    <partial name="_NoteTopActions" />
+}
+
+@* The list reloads itself when a device changes a note (note-live.js waits on /live/note/revision). *@
+<div class="mat-list" data-live data-live-revision="@Model.Result.Latest">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+
+    <div class="mc-live-region" data-live-region>
+        @if (Model.Result.Items.Count == 0)
+        {
+            var first = Model.Result.Total == 0;
+            <partial name="_Empty" model="@(new EmptyStateModel("file-text", first ? "Noch keine Notiz" : "Nichts gefunden",
+                first ? "Verbinde ThixNote in den Einstellungen unter „Cloud“ mit dieser MatCloud, dann stehen deine Notizen hier. Oder schreib hier die erste."
+                      : "Keine Notiz passt zur Suche oder zum Ordner.",
+                first, newHref, "Neue Notiz", Model.Toolbar.UrlReset()))" />
+        }
+        else
+        {
+            <ul class="mat-itemlist mat-itemlist--inset mc-notes" aria-label="Notizen">
+                @foreach (var n in Model.Result.Items)
+                {
+                    <li class="mat-item mat-item--top mc-note">
+                        <a class="mat-item__main" href="/Note/View?key=@n.Key">
+                            <span class="mat-item__lead"><span class="mat-item__tile">@Ui.Icon(NoteService.KindIcon(n.Kind))</span></span>
+                            <span class="mat-item__body">
+                                <span class="mat-item__title">@n.Title</span>
+                                @if (n.Preview.Length > 0)
+                                {
+                                    <span class="mat-item__text mat-item__text--clamp">@n.Preview</span>
+                                }
+                                <span class="mat-item__text mc-meta">
+                                    @if (n.Kind == NoteKind.Protected)
+                                    {
+                                        <span class="mat-pill mat-pill--plain mc-pill">@Ui.Icon("lock")Geschützt</span>
+                                    }
+                                    <span>@(n.Folder.Length > 0 ? n.Folder + " · " : "")@n.KindName@(n.Source is null ? "" : " · " + (n.Source == "Web" ? "Browser" : n.Source))</span>
+                                </span>
+                            </span>
+                            <span class="mat-item__end"><span class="mat-item__note">@Dates.Short(n.UpdatedDate)</span></span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+
+    <div class="mat-actions">
+        <a class="mat-btn mat-btn--primary" href="@newHref">@Ui.Icon("plus")<span>Neue Notiz</span></a>
+        <button type="button" class="mat-btn mat-btn--secondary" data-dialog-open="note-folder">@Ui.Icon("folder")<span>Neuer Ordner …</span></button>
+    </div>
+
+    <dialog class="mat-dialog mat-dialog--sm" id="note-folder" aria-labelledby="note-folder-title">
+        <form method="post" asp-page-handler="Folder" class="mat-dialog__form">
+            <div class="mat-dialog__head">
+                @Ui.Icon("folder")
+                <h2 class="mat-dialog__title" id="note-folder-title">Neuer Ordner</h2>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+            </div>
+            <div class="mat-dialog__body mat-form">
+                <mc-field name="NewFolder" label="Name" required value="@(Model.Folder is null ? "" : Model.Folder + "/")" maxlength="500"
+                          hint="Ein Ordner in einem Ordner: mit / getrennt (Arbeit/Projekte)." msg-required="Bitte einen Namen eingeben." />
+            </div>
+            <div class="mat-dialog__foot">
+                <div class="mat-btn-row mat-btn-row--plain">
+                    <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("plus")<span>Anlegen</span></button>
+                    <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Note/js/note-live.js" asp-append-version="true"></script>
+}

@@ -13,7 +13,7 @@
 - **MatCloud.Contract** – what the apps copy: routes, DTOs, limits, `MatCloudClient`. No server logic.
 - **MatCloud.Core** – the platform: accounts (local and MatIdentity), sessions, devices per app, the sign-in in the browser, which apps are on, the general
   sync, the device API, the module contract, the shared web parts (layout, menus, controls), MatPlatform.
-- **Modules** (`src/Apps/*`) – an app with its own tables, API and pages (ThixClip).
+- **Modules** (`src/Apps/*`) – an app with its own tables, API and pages (ThixClip), or pages on the items of the general sync (ThixNote, `UsesGeneralSync`).
 - **MatCloud** (host) – composition, the platform description (`/api`), the pages of the platform, the migrations, the files of the browser.
 
 ## Accounts and sign-in

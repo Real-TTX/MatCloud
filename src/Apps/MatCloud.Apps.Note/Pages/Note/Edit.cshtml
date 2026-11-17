@@ -1,0 +1,62 @@
+@page "/Note/Edit"
+@model MatCloud.Apps.Note.Pages.Note.EditModel
+@{
+    var note = Model.Note;
+    var title = Model.IsNew ? "Neue Notiz" : note!.Kind == NoteKind.Protected ? $"{note.Title} umbenennen" : note.Title;
+    ViewData["Title"] = title;
+    ViewData["PageSub"] = Model.IsNew ? "Sie steht sofort auch in ThixNote auf deinen Geräten." : $"{note!.KindName} · geändert {Dates.Stamp(note.UpdatedDate)}";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Notizen", "/Note"), (title, null) };
+    ViewData["Width"] = "wide";
+    var folders = new List<Choice> { new(string.Empty, "Oberste Ebene") };
+    folders.AddRange(Model.Folders.Select(f => new Choice(f, f)));
+    if (Model.Folder.Length > 0 && !Model.Folders.Contains(Model.Folder, StringComparer.OrdinalIgnoreCase))
+    {
+        folders.Add(new Choice(Model.Folder, Model.Folder));
+    }
+
+    var kinds = new List<Choice> { new(nameof(NoteKind.Markdown), "Markdown", "Überschriften, Listen, Links – mit Vorschau"), new(nameof(NoteKind.Text), "Text", "Reiner Text") };
+    var back = Model.IsNew ? "/Note" : "/Note/View?key=" + note!.Key;
+}
+
+@section TopActions {
+    <partial name="_NoteTopActions" />
+}
+
+<form class="mat-form" method="post" novalidate>
+    <input type="hidden" name="Key" value="@Model.Key" />
+    <input type="hidden" name="BaseHash" value="@Model.BaseHash" />
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__body mat-form mc-note-fields">
+            <mc-field name="Title" label="Titel" required value="@Model.Title" maxlength="200" autofocus="@Model.IsNew"
+                      hint="Der Dateiname der Notiz in ThixNote, ohne die Zeichen \ / : * ? < > | und ohne Anführungszeichen." msg-required="Bitte einen Titel eingeben." />
+            <mc-field name="Folder" kind="select" label="Ordner" value="@Model.Folder" options="folders" />
+            @if (Model.IsNew)
+            {
+                <mc-field name="Kind" kind="radios" label="Art" value="@Model.Kind.ToString()" options="kinds" />
+            }
+            else
+            {
+                <input type="hidden" name="Kind" value="@Model.Kind" />
+            }
+        </div>
+    </div>
+
+    @if (Model.Kind != NoteKind.Protected)
+    {
+        <div class="mat-card">
+            <div class="mat-card__body mat-form">
+                <mc-field name="Text" kind="textarea" label="Text" rows="20" value="@Model.Text" full />
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="mat-alert mat-alert--info" role="status">
+            @Ui.Icon("lock")
+            <div class="mat-alert__body">Eine geschützte Notiz: hier änderst du nur Titel und Ordner. Den Text öffnest du auf ihrer Seite mit dem Kennwort.</div>
+        </div>
+    }
+
+    <mc-buttons save="@(Model.IsNew ? "Anlegen" : "Speichern")" save-icon="@(Model.IsNew ? "plus" : "save")" back="@back" />
+</form>

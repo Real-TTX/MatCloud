@@ -43,6 +43,26 @@ function imageClip(png, minutesAgo, ocr) {
   return { syncId: crypto.randomUUID(), kind: 'Image', ocrText: ocr || null, contentHash: sha(png), createdAt: at, copiedAt: at, updatedAt: at };
 }
 
+// A protected note of ThixNote (NoteEncryption): "QNSEC1" | iterations (int32 LE) | salt (16) | nonce (12) | tag (16) | ciphertext;
+// PBKDF2-SHA256 (600000 rounds, 32 bytes), AES-256-GCM with the magic as additional data. The browser must read and write exactly this.
+const notePassword = "Kennwort-2026";
+function thixNoteEncrypt(text, password) {
+  const magic = Buffer.from("QNSEC1"), salt = crypto.randomBytes(16), nonce = crypto.randomBytes(12), iterations = 600000;
+  const key = crypto.pbkdf2Sync(password, salt, iterations, 32, "sha256");
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, nonce);
+  cipher.setAAD(magic);
+  const body = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]);
+  const count = Buffer.alloc(4); count.writeInt32LE(iterations);
+  return Buffer.concat([magic, count, salt, nonce, cipher.getAuthTag(), body]);
+}
+function thixNoteDecrypt(bytes, password) {
+  const magic = bytes.subarray(0, 6), iterations = bytes.readInt32LE(6), salt = bytes.subarray(10, 26), nonce = bytes.subarray(26, 38), tag = bytes.subarray(38, 54);
+  const key = crypto.pbkdf2Sync(password, salt, iterations, 32, "sha256");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, nonce);
+  decipher.setAAD(magic); decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(bytes.subarray(54)), decipher.final()]).toString("utf8");
+}
+
 async function shot(page, name) {
   await page.waitForTimeout(250);
   await page.screenshot({ path: path.join(shots, name + '.png'), fullPage: true });
@@ -215,15 +235,72 @@ async function signIn(page, who) {
     const noteToken = approved.data.login.token;
     const again = await api('POST', '/api/v1/devices/link/poll', null, { pollToken: link.data.pollToken });
     check(again.data.state === 'Expired', 'the token is given only once');
-    const notes = ['Einkauf.md', 'Projekte/MatCloud.md', 'Passwörter.txts'].map((p, i) => ({
-      collection: 'notes', key: crypto.randomUUID(), data: JSON.stringify({ path: p, content: 'Notiz ' + i }), updatedAt: new Date(Date.now() - i * 60000).toISOString(),
-    }));
+    // the notes as ThixNote pushes them: {path, content} with the SHA-256 of the text, a protected one as its encrypted bytes, the folders as items of their own
+    const noteHash = (b) => crypto.createHash('sha256').update(b).digest('hex');
+    const noteItem = (p, content, minutes) => ({ collection: 'notes', key: crypto.randomUUID(), data: JSON.stringify({ path: p, content }),
+      contentHash: noteHash(Buffer.from(content, 'utf8')), updatedAt: new Date(Date.now() - minutes * 60000).toISOString() });
+    const secretBytes = thixNoteEncrypt('WLAN: MatCloud-Gast\nKennwort: Sonnenblume42', notePassword);
+    const notes = [
+      noteItem('Einkauf.md', '# Einkauf\n\n- Milch\n- Brot\n- [ ] Kaffee', 30),
+      noteItem('Projekte/MatCloud.md', '# MatCloud\n\nDie Cloud der **Thix-Apps**:\n\n| App | Art |\n|---|---|\n| ThixClip | Web-App und Sync |\n| ThixNote | Web-App und Sync |\n\n> Alles auf allen Geräten.', 10),
+      noteItem('Projekte/Ideen.txt', 'Dunkles Logo testen\nPWA-Kürzel für Notizen', 5),
+      { collection: 'notes', key: crypto.randomUUID(), data: JSON.stringify({ path: 'Privat/Zugangsdaten WLAN.txts', bytes: secretBytes.toString('base64') }),
+        contentHash: noteHash(secretBytes), updatedAt: new Date(Date.now() - 60000).toISOString() },
+      { collection: 'folders', key: 'Projekte', data: '{}', updatedAt: new Date().toISOString() },
+      { collection: 'folders', key: 'Privat', data: '{}', updatedAt: new Date().toISOString() },
+    ];
     const pushNotes = await api('POST', '/api/v1/sync/push', noteToken, { items: notes });
     check(pushNotes.status === 200 && pushNotes.data.results.every((r) => r.applied), 'ThixNote pushes its notes into the general sync');
     const noteChanges = await api('GET', '/api/v1/sync/changes?since=0', noteToken);
     check(noteChanges.status === 200 && noteChanges.data.items.length >= notes.length, 'and reads them back');
     check((await api('GET', '/api/v1/clip/changes?since=0', noteToken)).status === 403, 'a device of ThixNote cannot read the clipboard');
     check((await api('GET', '/api/v1/sync/changes?since=0', token)).status === 403, 'ThixClip has its own routes, no general sync');
+
+    console.log('ThixNote in the browser');
+    await page.goto(base + '/Note');
+    await page.waitForSelector('.mc-notes');
+    await shot(page, '40-notes');
+    check((await page.$$eval('.mc-note', (r) => r.length)) >= 4, 'the notes of ThixNote are listed');
+    await page.goto(base + '/Note?folder=Projekte');
+    check((await page.$$eval('.mc-note', (r) => r.length)) === 2, 'a folder shows its notes');
+    const projectKey = notes[1].key;
+    await page.goto(base + '/Note/View?key=' + projectKey);
+    await shot(page, '41-note-markdown');
+    check(await page.$('.mc-markdown table') !== null && await page.$('.mc-markdown h1') !== null, 'Markdown is drawn as a page (headings, tables)');
+    await page.goto(base + '/Note/Edit?key=' + projectKey);
+    await shot(page, '42-note-edit');
+    await page.fill('#Text', '# MatCloud\n\nGeändert im Browser.');
+    await Promise.all([page.waitForNavigation(), page.click('form.mat-form button[type=submit].mat-btn--primary')]);
+    const afterEdit = (await api('GET', '/api/v1/sync/changes?since=0', noteToken)).data.items.find((i) => i.key === projectKey);
+    check(afterEdit && JSON.parse(afterEdit.data).content === '# MatCloud\n\nGeändert im Browser.' && afterEdit.source === 'Web'
+      && afterEdit.contentHash === noteHash(Buffer.from('# MatCloud\n\nGeändert im Browser.', 'utf8')), 'ThixNote gets the change of the browser in its own format');
+    await page.goto(base + '/Note/Edit?folder=Projekte');
+    await page.fill('#Title', 'Aus dem Browser');
+    await page.fill('#Text', 'Eine neue Notiz');
+    await Promise.all([page.waitForNavigation(), page.click('form.mat-form button[type=submit].mat-btn--primary')]);
+    const createdNote = (await api('GET', '/api/v1/sync/changes?since=0', noteToken)).data.items.find((i) => i.data && JSON.parse(i.data).path === 'Projekte/Aus dem Browser.md');
+    check(!!createdNote, 'a note written in the browser reaches ThixNote');
+
+    // a protected note: opened and saved only in the browser
+    const secretKey = notes[3].key;
+    await page.goto(base + '/Note/View?key=' + secretKey);
+    await shot(page, '43-note-locked');
+    await page.fill('#note-password', 'falsch');
+    await page.click('[data-note-unlock] button[type=submit]');
+    await page.waitForFunction(() => { const e = document.querySelector('[data-note-error]'); return e && !e.hidden; }, null, { timeout: 30000 });
+    check(true, 'a wrong password is refused in the browser');
+    await page.fill('#note-password', notePassword);
+    await page.click('[data-note-unlock] button[type=submit]');
+    await page.waitForSelector('[data-note-editor]:not([hidden])', { timeout: 30000 });
+    check((await page.inputValue('#note-plain')).includes('Sonnenblume42'), 'the protected note is decrypted in the browser');
+    await shot(page, '44-note-unlocked');
+    await page.fill('#note-plain', 'WLAN: MatCloud-Gast\nKennwort: Mondblume7');
+    await Promise.all([page.waitForNavigation(), page.click('[data-note-editor] button[type=submit]')]);
+    const sealed = (await api('GET', '/api/v1/sync/changes?since=0', noteToken)).data.items.find((i) => i.key === secretKey);
+    const sealedBytes = Buffer.from(JSON.parse(sealed.data).bytes, 'base64');
+    check(thixNoteDecrypt(sealedBytes, notePassword) === 'WLAN: MatCloud-Gast\nKennwort: Mondblume7' && sealed.contentHash === noteHash(sealedBytes),
+      'saved in the browser, ThixNote decrypts it with the same password');
+    check(!sealed.data.includes('Mondblume7'), 'the server never sees the text of a protected note');
 
     console.log('Overview, apps, settings of the clipboard, administration');
     await page.goto(base + '/');
@@ -280,7 +357,7 @@ async function signIn(page, who) {
       const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: scheme, locale: 'de-DE' });
       const p = await phone.newPage();
       await signIn(p, admin);
-      for (const [url, name] of [['/', 'overview'], ['/Apps', 'apps'], ['/Connect', 'connect'], ['/Clip', 'history'], [imageHref, 'clip-image'], [firstText, 'clip-text'], ['/Clip/Edit', 'new'], ['/Account', 'account'], ['/Account/Devices', 'devices'], ['/Admin/Users', 'users'], ['/Admin/Apps', 'admin-apps']]) {
+      for (const [url, name] of [['/', 'overview'], ['/Apps', 'apps'], ['/Connect', 'connect'], ['/Note', 'notes'], ['/Note/View?key=' + projectKey, 'note'], ['/Clip', 'history'], [imageHref, 'clip-image'], [firstText, 'clip-text'], ['/Clip/Edit', 'new'], ['/Account', 'account'], ['/Account/Devices', 'devices'], ['/Admin/Users', 'users'], ['/Admin/Apps', 'admin-apps']]) {
         await p.goto(base + url);
         await shot(p, `20-phone-${scheme}-${name}`);
         await shotEnd(p, `20-phone-${scheme}-${name}-end`);
