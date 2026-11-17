@@ -9,6 +9,7 @@
 /* The pages of an app module wear the colour of their app (AppBrands, <html data-app>): ThixClip the blue of its tile, ThixNote the red of its
    logo, a little darker (#DB4C3F carries white text at 4.1:1 only; #C53D30 reaches 5.1:1). The other Thix apps for their cards. */
 [data-app="thixclip"], [data-app="thixcalendar"], [data-app="thixlauncher"], [data-app="thixtunnel"] { --mat-app-accent: #2f6fed; }
+[data-app="thixfred"] { --mat-app-accent: #5b33f0; }
 [data-app="thixnote"] { --mat-app-accent: #c53d30; }
 
 /* ---- Shell ------------------------------------------------------------------------------------------------------- */
