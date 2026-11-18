@@ -1,0 +1,90 @@
+@page "/Calendar/Event"
+@model MatCloud.Apps.Calendar.Pages.Calendar.EventModel
+@{
+    var e = Model.Existing;
+    var title = Model.IsNew ? "Neuer Termin" : e!.Data.Title;
+    ViewData["Title"] = title;
+    ViewData["PageSub"] = Model.IsNew ? "Er steht sofort auch in ThixCalendar auf deinen Geräten."
+        : $"{e!.Calendar.Name} · {e.Calendar.AccountName}" + (e.IsCloud ? " · über MatCloud" : string.Empty);
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kalender", "/Calendar"), (Model.IsNew ? "Neuer Termin" : "Termin", null) };
+    var calendars = Model.Writable.Select(c => new Choice(c.Key, c.Name, c.AccountName)).ToList();
+    var back = Model.IsNew ? "/Calendar" : $"/Calendar?view=week&date={Model.StartDate}";
+}
+
+@section TopActions {
+    <partial name="_CalendarTopActions" />
+}
+
+@if (!Model.CanEdit)
+{
+    @* read only: an ICS address, a read-only calendar *@
+    <div class="mat-card mc-event-view" data-color="@e!.Calendar.Color">
+        <div class="mat-card__body">
+            <p class="mc-event-view__when">@Ui.Icon("clock")<span>@GermanDates.Long(e.StartLocal) · @e.TimeText</span></p>
+            @if (e.Data.Location.Length > 0)
+            {
+                <p class="mc-event-view__where">@Ui.Icon("globe")<span>@e.Data.Location</span></p>
+            }
+            @if (e.Data.Description.Length > 0)
+            {
+                <p class="mc-event-view__notes">@e.Data.Description</p>
+            }
+            <div class="mat-alert mat-alert--info" role="status">
+                @Ui.Icon("lock")
+                <div class="mat-alert__body">Dieser Kalender lässt sich nur lesen.</div>
+            </div>
+        </div>
+    </div>
+    <div class="mat-actions">
+        @if (e.Data.MeetingUrl.Length > 0)
+        {
+            <a class="mat-btn mat-btn--primary" href="@e.Data.MeetingUrl" target="_blank" rel="noopener">@Ui.Icon("play")<span>Beitreten</span></a>
+        }
+        <a class="mat-btn" href="@back">@Ui.Icon("back")<span>Zurück</span></a>
+    </div>
+}
+else if (Model.Writable.Count == 0)
+{
+    <partial name="_Empty" model="@(new EmptyStateModel("calendar", "Kein Kalender zum Schreiben",
+        "Termine entstehen in deinen eigenen Kalendern (aus ThixCalendar) oder in Konten von Microsoft oder Google, die MatCloud hält. Verbinde eines unter „Konten“.",
+        true, "/Calendar/Accounts", "Konten öffnen"))" />
+}
+else
+{
+    <form class="mat-form mc-event-form" method="post" novalidate>
+        <input type="hidden" name="Key" value="@Model.Key" />
+        <input type="hidden" name="Src" value="@Model.Src" />
+        <partial name="_FormSummary" model="ViewData.ModelState" />
+
+        <div class="mat-card">
+            <div class="mat-card__body mc-event-form__body">
+                <mc-field name="Title" label="Titel" required value="@Model.Title" maxlength="500" autofocus="@Model.IsNew" placeholder="Worum geht es?"
+                          msg-required="Bitte einen Titel eingeben." full />
+                <mc-field name="Calendar" kind="select" label="Kalender" value="@Model.Calendar" options="calendars" />
+                <mc-field name="IsAllDay" kind="switch" label="Ganztägig" value="@Model.IsAllDay" />
+                <div class="mc-event-form__times">
+                    <mc-field name="StartDate" kind="date" label="Beginn" required value="@Model.StartDate" />
+                    <div class="mc-time"><mc-field name="StartTime" kind="time" label="Uhrzeit" value="@Model.StartTime" /></div>
+                    <mc-field name="EndDate" kind="date" label="Ende" required value="@Model.EndDate" />
+                    <div class="mc-time"><mc-field name="EndTime" kind="time" label="Uhrzeit" value="@Model.EndTime" /></div>
+                </div>
+                <mc-field name="Location" label="Ort" optional value="@Model.Location" maxlength="500" placeholder="Raum, Adresse oder Link der Besprechung" full />
+                <mc-field name="Description" kind="textarea" label="Notizen" optional value="@Model.Description" rows="6" full />
+                <mc-field name="Reminder" kind="select" label="Erinnerung" value="@Model.Reminder" options="EventModel.ReminderChoices"
+                          hint="ThixCalendar erinnert auf deinen Computern – bis du antwortest." />
+            </div>
+        </div>
+
+        @if (e is not null && e.Data.MeetingUrl.Length > 0)
+        {
+            <p><a class="mat-btn" href="@e.Data.MeetingUrl" target="_blank" rel="noopener">@Ui.Icon("play")<span>Besprechung beitreten</span></a></p>
+        }
+
+        <mc-buttons save="@(Model.IsNew ? "Anlegen" : "Speichern")" save-icon="@(Model.IsNew ? "plus" : "save")" back="@back"
+                    delete-handler="@(Model.IsNew ? null : "Delete")" delete-confirm="Diesen Termin löschen – auch in ThixCalendar und bei Microsoft bzw. Google?" />
+    </form>
+}
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Calendar/js/calendar-colors.js" asp-append-version="true"></script>
+}

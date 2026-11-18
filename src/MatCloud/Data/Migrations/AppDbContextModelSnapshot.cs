@@ -26,6 +26,81 @@ namespace MatCloud.Data.Migrations
 
             modelBuilder.HasSequence("SyncRevision");
 
+            modelBuilder.Entity("MatCloud.Apps.Calendar.Data.CalendarConnection", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Account")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Client")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("CreateUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Failures")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastSync")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("NextSync")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Problem")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ProtectedToken")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("UpdateUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NextSync");
+
+                    b.HasIndex("UserId", "Account")
+                        .IsUnique();
+
+                    b.ToTable("CalendarConnection", (string)null);
+                });
+
             modelBuilder.Entity("MatCloud.Apps.Clip.Data.ClipAccount", b =>
                 {
                     b.Property<long>("Id")
@@ -613,6 +688,17 @@ namespace MatCloud.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("UserSession", (string)null);
+                });
+
+            modelBuilder.Entity("MatCloud.Apps.Calendar.Data.CalendarConnection", b =>
+                {
+                    b.HasOne("MatCloud.Core.Data.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MatCloud.Apps.Clip.Data.ClipAccount", b =>

@@ -12,6 +12,12 @@ devices in here and keeps its data the same on every PC and Mac of an account. T
   The second is **ThixNote** (`MatCloud.Apps.Note`), a module of another kind: a *web client of the general sync* (`UsesGeneralSync`): ThixNote's
   devices keep syncing through `/api/v1/sync`, and the pages read and write the same items (list, folders, Markdown view, write, rename, delete;
   protected notes are decrypted and encrypted only in the browser with WebCrypto, in ThixNote's format).
+- The third is **ThixCalendar** (`MatCloud.Apps.Calendar`), a web client of the general sync that also **syncs on the server**: for the accounts the user lets
+  MatCloud keep (sync mode Cloud) it holds the Microsoft / Google sign-in (Data Protection) in the table CalendarConnection, a worker (`CalendarWorker`)
+  pulls their calendars and events with ThixCalendar's own providers (a COPY in `ThixCalendar/`, copied by ThixCalendar's `tools/providers-copy.js`, held by
+  `thixcalendar.version`) and writes them as items only MatCloud writes (`cloud-accounts`, `cloud-calendars`, `cloud-events`); events of such accounts
+  are changed at the provider first. Pages `/Calendar` (week, month), `/Calendar/Events`, `/Calendar/Event`, `/Calendar/Accounts` (sync mode, Microsoft
+  with a code, Google through the web client the administrator enters, ICS), `/Calendar/Settings`.
 - **Apps in the general sync** (everything else, ThixNote first): no code here. They keep items of their own choosing (collection + key + data) and
   MatCloud keeps them in step (last writer wins, tombstones, revisions, long poll).
 
@@ -89,6 +95,16 @@ src/Apps/MatCloud.Apps.Note (Razor class library) the module ThixNote, no tables
                             Pages/Note (Index: cards, View: the note as a page, Edit: the editor), Pages/Shared/_NoteMenu (folders); wwwroot/js
                             note-live.js, note-editor.js (toolbar, keys, lists that continue, preview from POST /live/note/preview, Strg+S, a warning
                             before unsaved text is left), note-view.js (E edits), note-crypt.js ("QNSEC1" | iterations | salt | nonce | tag | ciphertext, PBKDF2-SHA256 + AES-256-GCM, checked before it is sent)
+src/Apps/MatCloud.Apps.Calendar (Razor class library) the module ThixCalendar: CalendarModule (UsesGeneralSync, the worker); Data/CalendarModel
+                            (CalendarConnection: the protected sign-in, state, next sync); Business/ CalendarItems (the items of the app), CalendarCloudSync
+                            (one account: token, calendars, events → cloud-* items, tombstones; let go when the account went back to the computers),
+                            CalendarWorker (BackgroundService, every 30 s or woken), CalendarConnections (hand-over, Microsoft with a code, Google web,
+                            ICS, sync mode, remove), CalendarEvents (at the provider first; own calendars into the items), CalendarPages (what the pages
+                            read), CalendarKeys (Data Protection, the registrations), CalendarAdmin (the Google web client), GermanDates (no culture data
+                            in the container); ThixCalendar/ (COPY of ThixCalendar's providers and models, never edit; ThixCalendarStandIns.cs = Log,
+                            AppInfo); Api/CalendarEndpoints (/api/v1/calendar for the devices, /live/calendar for the pages); Pages/Calendar (Index,
+                            Events, Event, Accounts, Connect, Google, Settings); wwwroot/js calendar-live.js, calendar-colors.js (the colours: no style
+                            attributes under the CSP), calendar-connect.js
 src/MatCloud                the host: Program (composition: modules, MatPlatform, MatIdentity, cookie, rate limit, body limit), Modules.cs (the list of
                             modules), Infrastructure (health check, migrations, design-time factory, setup redirect, forced password change, security
                             headers, housekeeping every hour, SeedAdminAsync: MATCLOUD_ADMIN_PASSWORD makes the first administrator), Platform/ (MatCloudPlatform: the MatApiDefinition, state, configure, actions, health;
@@ -111,7 +127,8 @@ docs/                       ARCHITECTURE.md (platform, modules, sync), CONTRACT.
   (UserSession, Device, DeviceLink).
 - **Sync rules:** one revision sequence per kind of data (`SyncRevision` for the general sync, `ClipRevision` for the clips); every change of a stream
   (an app of an account) runs under its advisory lock (`Revisions.ChangeAsync`), so "everything above N" never misses a change; the long polls are woken
-  after the commit (in memory: one server instance). General sync: last writer wins by `UpdatedAt`, a delete too, a later write revives. Clips:
+  after the commit (in memory: one server instance). General sync: last writer wins by `UpdatedAt`, a delete too, a later write revives; collections
+  `cloud-*` are written by the server only (a device's push into them is not applied). Clips:
   deleting wins, the same content is merged. Never log clipboard contents, note contents, passwords or tokens.
 - **Modules:** everything of an app lives in its project under `src/Apps` (tables, business, routes, pages, scripts, its menu partial); the platform
   knows no module by name (only `Modules.cs` lists them). Device routes go through `DeviceEndpoints.ForApp`. See docs/MODULES.md.

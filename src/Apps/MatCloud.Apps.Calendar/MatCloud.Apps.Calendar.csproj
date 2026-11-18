@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The ThixCalendar module of MatCloud: the calendars of an account in the browser, and the accounts MatCloud keeps in step on the server.
+    ThixCalendar keeps its data in the general sync (app calendar); this module is a web client of the same items (UsesGeneralSync) and, for the
+    accounts the user lets MatCloud keep (sync mode Cloud), signs in at Microsoft / Google / the ICS address itself, syncs in the background and
+    writes the events as items only MatCloud writes (cloud-accounts, cloud-calendars, cloud-events). The providers are a COPY of ThixCalendar's
+    (ThixCalendar/, tools/providers-copy.js in ThixCalendar): never edit them here.
+  -->
+  <PropertyGroup>
+    <RootNamespace>MatCloud.Apps.Calendar</RootNamespace>
+    <AssemblyName>MatCloud.Apps.Calendar</AssemblyName>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <MatCloudWebUsings>true</MatCloudWebUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The same ICS engine as ThixCalendar (the copied IcsProvider). -->
+    <PackageReference Include="Ical.Net" Version="5.2.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MatCloud.Core\MatCloud.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MatCloud.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The built-in secret of ThixCalendar's Google desktop client (CI: repository secret THIXCALENDAR_GOOGLE_CLIENT_SECRET) – refreshes the
+         sign-ins ThixCalendar hands over. MATCLOUD_CALENDAR_GOOGLE_SECRET overrides it at run time. -->
+    <AssemblyMetadata Include="ThixCalendarGoogleClientSecret" Value="$(ThixCalendarGoogleClientSecret)" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,54 @@
+@page "/Calendar/Settings"
+@model MatCloud.Apps.Calendar.Pages.Calendar.SettingsModel
+@{
+    ViewData["Title"] = "Einstellungen";
+    ViewData["PageSub"] = "Wer deine Kalender abgleicht – sie gelten auch für ThixCalendar auf deinen Computern.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kalender", "/Calendar"), ("Einstellungen", null) };
+}
+
+@section TopActions {
+    <partial name="_CalendarTopActions" />
+}
+
+<form class="mat-form" method="post" novalidate>
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__body">
+            <mc-field name="DefaultSyncMode" kind="radios" label="Neue Konten abgleichen" value="@Model.DefaultSyncMode.ToString()" options="SettingsModel.Modes"
+                      hint="Gilt für Konten, die du ab jetzt hinzufügst – hier oder in ThixCalendar. Jedes Konto lässt sich unter „Konten“ einzeln umstellen." />
+            <mc-field name="SyncIntervalMinutes" kind="select" label="Abgleich" value="@Model.SyncIntervalMinutes.ToString()" options="SettingsModel.Intervals"
+                      hint="Wie oft MatCloud und ThixCalendar bei Microsoft, Google und den ICS-Abos nachsehen." />
+        </div>
+    </div>
+    <mc-buttons save="Speichern" back="/Calendar" />
+</form>
+
+@if (Model.IsAdmin)
+{
+    @* only for administrators: the Google web client of this MatCloud *@
+    <form class="mat-form mc-admin-google" method="post" asp-page-handler="Google" novalidate>
+        <div class="mat-card">
+            <div class="mat-card__body">
+                <h2 class="mc-connect__title">Google im Browser <span class="mat-badge">Administration</span></h2>
+                <p>Damit sich Google-Konten auch im Browser verbinden lassen, braucht diese MatCloud einen eigenen OAuth-Client bei Google
+                    (Google Cloud Console › Anmeldedaten › OAuth-Client-ID › <strong>Webanwendung</strong>, Bereich
+                    <code>https://www.googleapis.com/auth/calendar</code>) mit dieser autorisierten Weiterleitungs-URI:</p>
+                <p><code class="mc-copyable">@Model.RedirectUri</code></p>
+                @if (Model.GoogleFromEnvironment)
+                {
+                    <div class="mat-alert mat-alert--info" role="status">@Ui.Icon("info")<div class="mat-alert__body">Eingerichtet über die Konfiguration des Servers.</div></div>
+                }
+                else
+                {
+                    <mc-field name="GoogleClientId" label="Client-ID" optional value="@Model.GoogleClientId" placeholder="….apps.googleusercontent.com" full mono />
+                    <mc-field name="GoogleClientSecret" kind="password" label="Client-Secret" optional autocomplete="off"
+                              hint="@(Model.HasGoogleSecret ? "Gespeichert (geschützt). Leer lassen, um es zu behalten." : "Wird geschützt gespeichert und nie wieder angezeigt.")" full />
+                }
+            </div>
+        </div>
+        @if (!Model.GoogleFromEnvironment)
+        {
+            <mc-buttons save="Google-Zugang speichern" />
+        }
+    </form>
+}

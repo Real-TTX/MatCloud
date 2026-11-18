@@ -4,10 +4,10 @@
 
 # MatCloud
 
-**The cloud of the Thix apps – your clipboard, notes and settings the same on every PC and Mac.**
+**The cloud of the Thix apps – your clipboard, notes, calendars and settings the same on every PC and Mac.**
 
 Self-hosted, one container plus PostgreSQL. Every Thix app signs its devices in here; apps with a module get their own pages in the browser
-(ThixClip: the clipboard history, ThixNote: the notes), every other app keeps its data in the general sync. An app of the Mat family: sign-in through MatIdentity,
+(ThixClip: the clipboard history, ThixNote: the notes, ThixCalendar: the calendars), every other app keeps its data in the general sync. An app of the Mat family: sign-in through MatIdentity,
 installed and connected by Mattiverse – or on its own with `docker compose up`.
 
 </div>
@@ -24,6 +24,7 @@ installed and connected by Mattiverse – or on its own with `docker compose up`
 | **Sign-in in the browser** | The app shows a code and opens MatCloud; you confirm the code – also with an account of MatIdentity. Or sign in with user name and password. |
 | **ThixClip** (module) | The clipboard history of all your computers: texts, links and pictures with their recognised text, searchable, live, favourites and pinned entries, "Verlauf löschen" like a browser, retention per account. |
 | **ThixNote** (module) | The notes of all your computers in the browser, as cards: folders, search, Markdown drawn as a page, write, rename, move, delete – every device of ThixNote sees it at once. A real Markdown editor: toolbar and keys (Strg+B, Strg+K …), lists that continue themselves, a preview beside the text, Strg+S, a warning before unsaved text is left. Protected notes are opened and saved only in your browser with their password; the server never sees their text. |
+| **ThixCalendar** (module) | The calendars of all your computers in the browser: week and month, the events as a list, new events and changes (they reach ThixCalendar at once). Accounts of Microsoft 365 / Outlook.com, Google and ICS addresses can run **over MatCloud**: MatCloud keeps the sign-in (protected) and syncs on the server, also while no computer runs – the computers then need no sign-in of their own. Per account and as a default for new ones; connect Microsoft in the browser with a code, Google with the web client the administrator enters, or hand the sign-in over from ThixCalendar. |
 | **Every app looks like itself** | `/Clip` is ThixClip, `/Note` is ThixNote: their logo and name at the top of the menu, their colour, their favicon – and each can be installed as an app of its own. |
 | **General sync** | ThixNote (notes), ThixCalendar, ThixTunnel, ThixLauncher, ThixFred (the launcher: settings, themes, web searches, scripts, store plugins): their data the same everywhere – last change wins, deletions travel, nothing is missed (revisions + long poll). The cloud never reads it: protected notes stay encrypted. |
 | **Apps und Daten** | What each app keeps for you, its devices, and "Daten in der Cloud löschen". |
@@ -65,6 +66,9 @@ internet put a TLS proxy in front (Matcad, Caddy, nginx, Traefik; `X-Forwarded-*
 | `MAT_PUBLIC_URL` | the public address (for the link of the sign-in in the browser); otherwise the setting in Administration › System, else the address of the request |
 | `MATIDENTITY_AUTHORITY`, `MATIDENTITY_CLIENT_ID` (default `matcloud`), `MATIDENTITY_CLIENT_SECRET`, `MATIDENTITY_INTERNAL_URL` | sign-in through MatIdentity (OpenID Connect, back-channel logout); the local sign-in stays at `/Account/Login?local=1` |
 | `MAT_FRAME_ANCESTORS` | the origins that may show MatCloud in a frame (Mattiverse) |
+| `MATCLOUD_CALENDAR_GOOGLE_SECRET` | the client secret of ThixCalendar's Google desktop client (the image of GitHub has it built in): MatCloud keeps the Google sign-ins ThixCalendar hands over |
+| `MATCLOUD_CALENDAR_GOOGLE_WEB_CLIENT_ID`, `MATCLOUD_CALENDAR_GOOGLE_WEB_CLIENT_SECRET` | a Google web client of this MatCloud (redirect `<address>/Calendar/Google`): Google accounts can be connected in the browser; otherwise the administrator enters it under Kalender › Einstellungen |
+| `MATCLOUD_CALENDAR_WORKER` | `off` stops the calendar sync on the server (tests) |
 
 Volumes: `web-data` (`/data`: the keys that protect the sessions, the bindings of the platform) and `db-data` (the database).
 

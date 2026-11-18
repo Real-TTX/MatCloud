@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MatCloud.Core\MatCloud.Core.csproj" />
+    <ProjectReference Include="..\Apps\MatCloud.Apps.Calendar\MatCloud.Apps.Calendar.csproj" />
     <ProjectReference Include="..\Apps\MatCloud.Apps.Clip\MatCloud.Apps.Clip.csproj" />
     <ProjectReference Include="..\Apps\MatCloud.Apps.Note\MatCloud.Apps.Note.csproj" />
   </ItemGroup>

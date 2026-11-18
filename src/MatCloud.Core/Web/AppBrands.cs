@@ -36,7 +36,7 @@ public static class AppBrands
     {
         [CloudApps.Clip] = new(CloudApps.Clip, "ThixClip", "Thix", "thixclip", "/img/apps/thixclip.svg", "/img/apps/thixclip-small.svg", "/img/apps/thixclip-256.png", "/img/apps/thixclip-512.png"),
         [CloudApps.Note] = new(CloudApps.Note, "ThixNote", "Thix", "thixnote", "/img/apps/thixnote.svg", "/img/apps/thixnote-small.svg", "/img/apps/thixnote-256.png", "/img/apps/thixnote-512.png"),
-        [CloudApps.Calendar] = new(CloudApps.Calendar, "ThixCalendar", "Thix", "thixcalendar", "/img/apps/thixcalendar.svg", "/img/apps/thixcalendar.svg", null, null),
+        [CloudApps.Calendar] = new(CloudApps.Calendar, "ThixCalendar", "Thix", "thixcalendar", "/img/apps/thixcalendar.svg", "/img/apps/thixcalendar-small.svg", "/img/apps/thixcalendar-256.png", "/img/apps/thixcalendar-512.png"),
         [CloudApps.Tunnel] = new(CloudApps.Tunnel, "ThixTunnel", "Thix", "thixtunnel", "/img/apps/thixtunnel.svg", "/img/apps/thixtunnel.svg", null, null),
         [CloudApps.Launcher] = new(CloudApps.Launcher, "ThixLauncher", "Thix", "thixlauncher", "/img/apps/thixlauncher.svg", "/img/apps/thixlauncher.svg", null, null),
         [CloudApps.Fred] = new(CloudApps.Fred, "ThixFred", "Thix", "thixfred", "/img/apps/thixfred.svg", "/img/apps/thixfred-small.svg", "/img/apps/thixfred-256.png", "/img/apps/thixfred-512.png"),

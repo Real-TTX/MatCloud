@@ -1,0 +1,56 @@
+@page "/Calendar/Connect"
+@model MatCloud.Apps.Calendar.Pages.Calendar.ConnectModel
+@{
+    ViewData["Title"] = "Microsoft verbinden";
+    ViewData["PageSub"] = "Microsoft 365, Exchange Online oder Outlook.com – MatCloud gleicht das Konto danach selbst ab.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kalender", "/Calendar"), ("Konten", "/Calendar/Accounts"), ("Microsoft verbinden", null) };
+}
+
+@section TopActions {
+    <partial name="_CalendarTopActions" />
+}
+
+@if (Model.Start is null)
+{
+    <form class="mat-form" method="post" novalidate>
+        <input type="hidden" name="account" value="@Model.Account" />
+        <partial name="_FormSummary" model="ViewData.ModelState" />
+        <div class="mat-card">
+            <div class="mat-card__body mc-connect-steps">
+                <p>So geht es:</p>
+                <ol>
+                    <li>Du bekommst gleich einen <strong>Code</strong>.</li>
+                    <li>Auf der Seite von Microsoft gibst du ihn ein und meldest dich mit deinem Konto an (Arbeit, Schule oder privat).</li>
+                    <li>Du erlaubst ThixCalendar den Zugriff auf deine Kalender – dann steht das Konto hier und in ThixCalendar auf deinen Computern.</li>
+                </ol>
+                <p class="mc-connect__hint">@Ui.Icon("info")<span>Meldet Microsoft „Administratorgenehmigung erforderlich“, gibt ein Administrator deiner Firma ThixCalendar einmal frei – der Link dafür erscheint dann hier.</span></p>
+            </div>
+        </div>
+        <mc-buttons save="Code holen" save-icon="key" back="/Calendar/Accounts" />
+    </form>
+}
+else
+{
+    @* calendar-connect.js asks /live/calendar/microsoft/{id} until Microsoft says yes or no *@
+    <div class="mat-card mc-mscode" data-ms-code="@Model.Start.Id" data-ms-interval="@Model.Start.IntervalSeconds">
+        <div class="mat-card__body">
+            <p>Öffne <a href="@Model.Start.VerificationUrl" target="_blank" rel="noopener">@Model.Start.VerificationUrl.Replace("https://", string.Empty)</a> und gib diesen Code ein:</p>
+            <p class="mc-code mc-mscode__value"><span data-copy-source>@Model.Start.UserCode</span>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon" data-copy="@Model.Start.UserCode" aria-label="Code kopieren" data-tip="Code kopieren">@Ui.Icon("copy")</button>
+            </p>
+            <p class="mc-mscode__state" data-ms-state aria-live="polite">@Ui.Icon("refresh")<span>Warte auf die Anmeldung bei Microsoft …</span></p>
+            <div class="mat-alert mat-alert--danger" data-ms-error hidden role="alert">
+                @Ui.Icon("alert")
+                <div class="mat-alert__body" data-ms-error-text></div>
+            </div>
+        </div>
+    </div>
+    <div class="mat-btn-row mc-btn-row">
+        <a class="mat-btn mat-btn--primary" href="@Model.Start.VerificationUrl" target="_blank" rel="noopener">@Ui.Icon("external")<span>Microsoft öffnen</span></a>
+        <a class="mat-btn mat-btn--secondary" href="/Calendar/Accounts">@Ui.Icon("back")<span>Abbrechen</span></a>
+    </div>
+}
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Calendar/js/calendar-connect.js" asp-append-version="true"></script>
+}

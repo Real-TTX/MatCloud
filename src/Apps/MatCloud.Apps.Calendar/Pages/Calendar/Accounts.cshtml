@@ -1,0 +1,62 @@
+@page "/Calendar/Accounts"
+@model MatCloud.Apps.Calendar.Pages.Calendar.AccountsModel
+@{
+    ViewData["Title"] = "Konten";
+    ViewData["PageSub"] = "Wer deine Kalender abgleicht: die Computer mit ThixCalendar oder MatCloud – auch wenn kein Computer läuft.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kalender", "/Calendar"), ("Konten", null) };
+    ViewData["GoogleInBrowser"] = Model.GoogleInBrowser;
+}
+
+@section TopActions {
+    <partial name="_CalendarTopActions" />
+}
+
+<div class="mc-accounts" data-live data-live-revision="@Model.Latest">
+    <div class="mc-live-region" data-live-region>
+        @if (Model.Accounts.Count == 0)
+        {
+            <partial name="_Empty" model="@(new EmptyStateModel("users", "Noch keine Konten",
+                "Verbinde ThixCalendar in den Einstellungen unter „Cloud“ mit dieser MatCloud – oder verbinde unten ein Konto direkt hier.", true))" />
+        }
+        else
+        {
+            <ul class="mc-account-list" aria-label="Konten">
+                @foreach (var a in Model.Accounts)
+                {
+                    <partial name="_CalendarAccount" model="a" />
+                }
+            </ul>
+        }
+    </div>
+
+    @* connect a new account here: it runs over MatCloud from the start *@
+    <section class="mat-card mc-connect" aria-labelledby="connect-title">
+        <div class="mat-card__body">
+            <h2 class="mc-connect__title" id="connect-title">Konto verbinden</h2>
+            <p class="mc-connect__text">Ein Konto, das du hier verbindest, gleicht MatCloud ab. Es erscheint auch in ThixCalendar auf deinen Computern – ohne dass sie sich anmelden müssen.</p>
+            <div class="mc-connect__choices">
+                <a class="mat-btn mat-btn--primary" href="/Calendar/Connect">@Ui.Icon("briefcase")<span>Microsoft 365 / Outlook.com</span></a>
+                @if (Model.GoogleInBrowser)
+                {
+                    <a class="mat-btn" href="/Calendar/Accounts?handler=Google">@Ui.Icon("globe")<span>Google Kalender</span></a>
+                }
+            </div>
+            @if (!Model.GoogleInBrowser)
+            {
+                <p class="mc-connect__hint">@Ui.Icon("info")<span>Google Kalender: in ThixCalendar am Computer anmelden und „Über MatCloud“ wählen@(Model.GoogleFromComputer ? string.Empty : " (dafür fehlt dieser MatCloud noch die Google-Registrierung von ThixCalendar)"). Im Browser geht Google, sobald der Administrator unter Kalender › Einstellungen den Google-Zugang einträgt.</span></p>
+            }
+
+            <form class="mat-form mc-connect__ics" method="post" asp-page-handler="Ics" novalidate>
+                <h3 class="mc-connect__sub">ICS-Abo</h3>
+                <partial name="_FormSummary" model="ViewData.ModelState" />
+                <mc-field name="IcsUrl" kind="url" label="Adresse" required value="@Model.IcsUrl" placeholder="https://… oder webcal://…" msg-required="Bitte die Adresse des Abos eingeben." full />
+                <mc-field name="IcsName" label="Name" optional value="@Model.IcsName" maxlength="100" placeholder="z. B. Feiertage" />
+                <mc-buttons save="Abonnieren" save-icon="plus" />
+            </form>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Calendar/js/calendar-live.js" asp-append-version="true"></script>
+}

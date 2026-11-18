@@ -1,0 +1,56 @@
+@page "/Calendar/Events"
+@model MatCloud.Apps.Calendar.Pages.Calendar.EventsModel
+@{
+    ViewData["Title"] = "Termine";
+    ViewData["PageSub"] = "Die Termine deiner Kalender als Liste.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kalender", "/Calendar"), ("Termine", null) };
+}
+
+@section TopActions {
+    <partial name="_CalendarTopActions" />
+}
+
+<div class="mat-list" data-live data-live-revision="@Model.Latest">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+
+    <div class="mc-live-region" data-live-region>
+        @if (Model.Items.Count == 0)
+        {
+            var first = Model.Total == 0;
+            <partial name="_Empty" model="@(new EmptyStateModel("calendar", first ? "Keine Termine" : "Nichts gefunden",
+                first ? "In diesem Zeitraum steht nichts in deinen Kalendern." : "Kein Termin passt zur Suche oder zum Kalender.",
+                first, "/Calendar/Event", "Neuer Termin", Model.Toolbar.UrlReset()))" />
+        }
+        else
+        {
+            @foreach (var day in Model.Items.GroupBy(e => e.StartLocal.Date))
+            {
+                <h2 class="mc-agenda__day">@GermanDates.Long(day.Key)</h2>
+                <ul class="mc-agenda" aria-label="@GermanDates.Long(day.Key, year: false)">
+                    @foreach (var e in day)
+                    {
+                        <li>
+                            <a class="mc-agenda__item@(e.IsCancelled || e.IsDeclined ? " is-off" : "")" href="@e.EditUrl" data-color="@e.Calendar.Color">
+                                <span class="mc-agenda__time">@e.TimeText</span>
+                                <span class="mc-agenda__text">
+                                    <span class="mc-agenda__title">@e.Data.Title</span>
+                                    <span class="mc-agenda__meta">@e.Calendar.Name@(e.Data.Location.Length > 0 ? " · " + e.Data.Location : string.Empty)</span>
+                                </span>
+                                @if (e.Data.MeetingUrl.Length > 0)
+                                {
+                                    @Ui.Icon("play", "mc-agenda__meeting")
+                                }
+                            </a>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+        <partial name="_Pager" model="Model.Pager" />
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Calendar/js/calendar-colors.js" asp-append-version="true"></script>
+    <script src="~/_content/MatCloud.Apps.Calendar/js/calendar-live.js" asp-append-version="true"></script>
+}

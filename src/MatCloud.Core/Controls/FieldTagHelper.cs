@@ -12,7 +12,7 @@ public sealed record Choice(string Value, string Label, string? Hint = null);
 
 /// <summary>
 /// The one code base of a form field (label above, hint below, the error at the field): <c>&lt;mc-field name="Text" label="Text" required /&gt;</c>.
-/// Kinds: text, password, number, url, search, textarea, select (the toolkit's select picker), radios (up to five exclusive choices), switch, check, file.
+/// Kinds: text, password, number, url, search, date, time, textarea, select (the toolkit's select picker), radios (up to five exclusive choices), switch, check, file.
 /// The message of the server (<c>ModelState</c>) is shown at the field; the id of a field is its name (or <c>id</c>, when two forms of a page have a field
 /// of the same name), so the summary at the top of a form can link to it. A field can depend on another (<c>show-if="#Kind" show-value="Text"</c>).
 /// </summary>
@@ -213,7 +213,7 @@ public sealed class FieldTagHelper : TagHelper
                 sb.Append($"<input class=\"mat-upload__input\" type=\"file\" id=\"{id}\" name=\"{name}\"{Attr("accept", Accept)}{common} /></div>");
                 break;
             default:
-                var type = Kind is "password" or "number" or "url" or "search" or "email" ? Kind : "text";
+                var type = Kind is "password" or "number" or "url" or "search" or "email" or "date" or "time" ? Kind : "text";
                 sb.Append($"<input class=\"mat-input{(Mono ? " mat-mono" : string.Empty)}\" type=\"{type}\" id=\"{id}\" name=\"{name}\" value=\"{E(type == "password" ? string.Empty : value)}\"{limits}{common} />");
                 break;
         }

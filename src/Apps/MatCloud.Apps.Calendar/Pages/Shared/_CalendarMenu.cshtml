@@ -1,0 +1,20 @@
+@model bool
+@*
+    The menu of the calendar (the module ThixCalendar), like the menu of the app: a new event first, the calendar, the events, the accounts, the settings.
+    Model: whether it is the menu shown.
+*@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    bool At(string page) => path.Equals(page, StringComparison.OrdinalIgnoreCase);
+}
+<nav class="mat-nav__scroll" aria-label="Kalender" data-nav-panel="@CloudApps.Calendar" hidden="@(!Model)">
+    <ul class="mat-nav__list">
+        <li><a class="mat-nav__item mat-nav__item--primary" href="/Calendar/Event">@Ui.Icon("plus")<span>Neuer Termin</span></a></li>
+        <li><a class="@Cls(At("/Calendar"))" href="/Calendar" aria-current="@Cur(At("/Calendar"))">@Ui.Icon("calendar")<span>Kalender</span></a></li>
+        <li><a class="@Cls(At("/Calendar/Events"))" href="/Calendar/Events" aria-current="@Cur(At("/Calendar/Events"))">@Ui.Icon("list")<span>Termine</span></a></li>
+        <li><a class="@Cls(At("/Calendar/Accounts") || At("/Calendar/Connect"))" href="/Calendar/Accounts" aria-current="@Cur(At("/Calendar/Accounts"))">@Ui.Icon("users")<span>Konten</span></a></li>
+        <li><a class="@Cls(At("/Calendar/Settings"))" href="/Calendar/Settings" aria-current="@Cur(At("/Calendar/Settings"))">@Ui.Icon("settings")<span>Einstellungen</span></a></li>
+    </ul>
+</nav>

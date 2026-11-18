@@ -16,6 +16,7 @@ WORKDIR /src
 COPY ["global.json", "Directory.Build.props", "Directory.Build.targets", "./"]
 COPY ["src/MatCloud.Contract/MatCloud.Contract.csproj", "src/MatCloud.Contract/"]
 COPY ["src/MatCloud.Core/MatCloud.Core.csproj", "src/MatCloud.Core/"]
+COPY ["src/Apps/MatCloud.Apps.Calendar/MatCloud.Apps.Calendar.csproj", "src/Apps/MatCloud.Apps.Calendar/"]
 COPY ["src/Apps/MatCloud.Apps.Clip/MatCloud.Apps.Clip.csproj", "src/Apps/MatCloud.Apps.Clip/"]
 COPY ["src/Apps/MatCloud.Apps.Note/MatCloud.Apps.Note.csproj", "src/Apps/MatCloud.Apps.Note/"]
 COPY ["src/MatCloud/MatCloud.csproj", "src/MatCloud/"]
@@ -23,11 +24,16 @@ RUN dotnet restore "src/MatCloud/MatCloud.csproj"
 
 COPY ["src", "src"]
 # Fall back to today's date when BuildDate is not supplied, so the version never ends in "-".
-RUN BUILD_DATE="${BuildDate:-$(date -u +%Y%m%d)}" && \
+# The secret of ThixCalendar's Google desktop client (build secret thixcalendar_google_secret, optional) lets MatCloud keep the Google sign-ins
+# ThixCalendar hands over; as a build secret it never shows in the history of the image.
+RUN --mount=type=secret,id=thixcalendar_google_secret,required=false \
+    BUILD_DATE="${BuildDate:-$(date -u +%Y%m%d)}" && \
+    GOOGLE_SECRET="$(cat /run/secrets/thixcalendar_google_secret 2>/dev/null || true)" && \
     dotnet publish "src/MatCloud/MatCloud.csproj" \
     -c Release -o /app/publish --no-restore \
     -p:UseAppHost=false \
-    -p:Channel=$Channel -p:BuildNumber=$BuildNumber -p:BuildDate=$BUILD_DATE
+    -p:Channel=$Channel -p:BuildNumber=$BuildNumber -p:BuildDate=$BUILD_DATE \
+    -p:ThixCalendarGoogleClientSecret="$GOOGLE_SECRET"
 
 # ---------------------------------------------------------------------------
 # Runtime stage (ASP.NET Core base image)

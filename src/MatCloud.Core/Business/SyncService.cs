@@ -126,7 +126,15 @@ public static class SyncService
             foreach (var item in request.Items)
             {
                 var when = item.UpdatedAt.UtcDateTime;
-                if (existing.TryGetValue((item.Collection, item.Key), out var row) && row.ClientUpdateDate > when)
+                existing.TryGetValue((item.Collection, item.Key), out var row);
+                if (actor.DeviceId is not null && SyncContract.IsServerCollection(item.Collection))
+                {
+                    // Only MatCloud writes these: the device keeps the item as it is.
+                    results.Add(new SyncPushResult(item.Collection, item.Key, row?.Revision ?? 0, false, row is null ? null : ToDto(row)));
+                    continue;
+                }
+
+                if (row is not null && row.ClientUpdateDate > when)
                 {
                     // A newer change is there already: the device takes it.
                     results.Add(new SyncPushResult(item.Collection, item.Key, row.Revision, false, ToDto(row)));

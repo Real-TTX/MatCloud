@@ -83,7 +83,7 @@ public static class CloudApps
     [
         new(Clip, "ThixClip", "Der Zwischenablage-Verlauf auf allen Geräten"),
         new(Note, "ThixNote", "Notizen auf allen Geräten"),
-        new(Calendar, "ThixCalendar", "Kalender-Einstellungen auf allen Geräten"),
+        new(Calendar, "ThixCalendar", "Kalender und Termine auf allen Geräten und im Browser"),
         new(Tunnel, "ThixTunnel", "Verbindungen und Profile auf allen Geräten"),
         new(Launcher, "ThixLauncher", "Die Thix-Apps und ihre Einstellungen"),
         new(Fred, "ThixFred", "Der Launcher: Einstellungen, Themes, Websuchen, Skripte und Plugins"),

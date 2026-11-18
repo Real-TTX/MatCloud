@@ -61,8 +61,25 @@ change on the device), `isDeleted`; set by the cloud: `source` (the device), `re
   won (the app takes it). A delete is a write too: it leaves a tombstone (no data); a later write brings the item back.
 - Every change takes the next number of one sequence while the app's data of the account is locked, so "everything above N" never misses a change.
 - Tombstones are kept a year (every device has seen them by then).
+- Collections that begin with `cloud-` are written by MatCloud only (a module that syncs on the server): a device reads them; its push into one is not
+  applied (`applied: false`, `current` = the item as it is).
 
 ## ThixClip (the module `clip`)
+
+## ThixCalendar (the module `calendar`, contract 1.3.0)
+
+ThixCalendar keeps its data in the general sync (`settings`, `accounts`, `calendars`, `events`, `answers`; types in `Calendar/CalendarContract.cs`).
+An online account has a **sync mode** (`CalendarAccountItem.syncMode`): `Computers` (every computer signs in itself, as before 1.3.0 – also when it is
+missing) or `Cloud` (MatCloud keeps the sign-in, protected, and syncs on the server, also while no computer runs). The default for new accounts is
+`CalendarSettingsItem.defaultSyncMode` (missing = `Cloud`). For a `Cloud` account MatCloud writes `cloud-accounts` (state: `Connecting`, `Ready`,
+`SignInRequired`, `Failing`), `cloud-calendars` (the provider's calendars, key = `CalendarKey(account, remoteId)`) and `cloud-events` (one item per
+occurrence, −14 … +120 days, key = `EventKey(calendarKey, remoteId)`).
+
+Only a device of `calendar`: `PUT /api/v1/calendar/connections` (`CalendarHandover { account, kind, userName, refreshToken, url }` → `CalendarCloudAccount`:
+MatCloud keeps the account in step from now on; the device forgets its own sign-in), `POST /api/v1/calendar/connections/remove` (`{ account }`, 204: back to
+the computers, MatCloud forgets the sign-in and removes its items), `POST /api/v1/calendar/sync` (`{ account }`, 202: sync now), `POST /api/v1/calendar/events`
+(`CalendarEventChange { event, data, delete }` → `CalendarEventChangeResult { event, data }`: an event of a `Cloud` account is changed at Microsoft /
+Google first, then in `cloud-events`). Refresh tokens must be of ThixCalendar's registration (`CalendarContract.MicrosoftClientId`, `GoogleClientId`).
 
 Only a device of `clip`: `GET/PUT /api/v1/clip/settings` (`ClipSettings { retentionDays }`: 1, 7, 30, 90, 365 or 0 = forever, for the whole account),
 `GET /api/v1/clip/changes?since=&limit=` (`ClipChangeSet { clips, latest, hasMore, retentionDays }`), `GET /api/v1/clip/wait`, `POST /api/v1/clip/push`
