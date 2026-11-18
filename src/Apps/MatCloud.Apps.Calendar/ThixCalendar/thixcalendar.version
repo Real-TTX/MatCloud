@@ -1,5 +1,5 @@
 ThixCalendar.Core providers – a copy from ThixCalendar (tools/providers-copy.js)
-1fd925ab5e0580b507a17d9ae981c5d0b4f5ed4e75db8f80e40b84827cef3d99  Models/CalendarModels.cs
+9192c679215e4b53c1f254159869176ebd4d9b181d9e1b9f775f36b9491bd0c3  Models/CalendarModels.cs
 ddd7a8248e24f9944751172f998c1e3c9577873057f6bc004f7deb8c23c8bbca  Providers/GoogleProvider.cs
 44cb309ad99aed8bdea31bed34823bebad91bfd559766cb692e2d3e709cf837c  Providers/GraphProvider.cs
 16c8a9e381b247b204da9606c3e6f80d38b9c30b316563fd9de75c192bd1b826  Providers/ICalendarProvider.cs

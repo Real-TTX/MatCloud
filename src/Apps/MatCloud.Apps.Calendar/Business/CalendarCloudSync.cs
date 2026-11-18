@@ -24,6 +24,14 @@ internal static class CalendarCloudSync
     {
         db.ActingUserId = connection.UserId;
         var account = await CalendarItems.FindAsync<CalendarAccountItem>(db, connection.UserId, CalendarContract.Accounts, connection.Account, ct);
+        if (account is null && connection.State == CalendarCloudState.Connecting && connection.UpdateDate > DateTime.UtcNow.AddMinutes(-15))
+        {
+            // Handed over just now: the item of the account may still be on its way from the device.
+            connection.NextSync = DateTime.UtcNow.AddMinutes(1);
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
         if (account is null || account.Data.SyncMode != CalendarSyncMode.Cloud || account.Data.Kind != connection.Kind)
         {
             await RemoveAsync(db, connection, ct);
