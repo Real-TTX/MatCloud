@@ -166,7 +166,8 @@ jobs:
             Channel=${{ steps.ver.outputs.channel }}
             BuildNumber=${{ steps.ver.outputs.build }}
             BuildDate=${{ steps.ver.outputs.date }}
-          # ThixCalendar's Google desktop client (optional repository secret): MatCloud keeps the Google sign-ins ThixCalendar hands over
+          # ThixCalendar's Google desktop client (optional repository secret): MatCloud keeps the Google sign-ins ThixCalendar hands over.
+          # Without it the server can still get it at run time from MATCLOUD_CALENDAR_GOOGLE_SECRET; the new run number busts the cache of this step.
           secrets: |
             thixcalendar_google_secret=${{ secrets.THIXCALENDAR_GOOGLE_CLIENT_SECRET }}
           tags: ${{ steps.tags.outputs.tags }}
