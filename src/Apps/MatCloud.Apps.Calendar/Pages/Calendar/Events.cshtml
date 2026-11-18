@@ -25,25 +25,28 @@
         {
             @foreach (var day in Model.Items.GroupBy(e => e.StartLocal.Date))
             {
-                <h2 class="mc-agenda__day">@GermanDates.Long(day.Key)</h2>
-                <ul class="mc-agenda" aria-label="@GermanDates.Long(day.Key, year: false)">
-                    @foreach (var e in day)
-                    {
-                        <li>
-                            <a class="mc-agenda__item@(e.IsCancelled || e.IsDeclined ? " is-off" : "")" href="@e.EditUrl" data-color="@e.Calendar.Color">
-                                <span class="mc-agenda__time">@e.TimeText</span>
-                                <span class="mc-agenda__text">
-                                    <span class="mc-agenda__title">@e.Data.Title</span>
-                                    <span class="mc-agenda__meta">@e.Calendar.Name@(e.Data.Location.Length > 0 ? " · " + e.Data.Location : string.Empty)</span>
-                                </span>
-                                @if (e.Data.MeetingUrl.Length > 0)
-                                {
-                                    @Ui.Icon("play", "mc-agenda__meeting")
-                                }
-                            </a>
-                        </li>
-                    }
-                </ul>
+                var isToday = day.Key == Dates.Local(DateTime.UtcNow).Date;
+                <section class="mc-agenda__group">
+                    <h2 class="mc-agenda__day@(isToday ? " is-today" : string.Empty)">@GermanDates.Long(day.Key)@if (isToday) {<span class="mat-pill mat-pill--accent mat-pill--plain">Heute</span>}</h2>
+                    <ul class="mc-agenda" aria-label="@GermanDates.Long(day.Key, year: false)">
+                        @foreach (var e in day)
+                        {
+                            <li>
+                                <a class="mc-agenda__item@(e.IsCancelled || e.IsDeclined ? " is-off" : "")" href="@e.EditUrl" data-color="@e.Calendar.Color">
+                                    <span class="mc-agenda__time">@e.TimeText</span>
+                                    <span class="mc-agenda__text">
+                                        <span class="mc-agenda__title">@e.Data.Title</span>
+                                        <span class="mc-agenda__meta">@e.Calendar.Name@(e.Data.Location.Length > 0 ? " · " + e.Data.Location : string.Empty)</span>
+                                    </span>
+                                    @if (e.Data.MeetingUrl.Length > 0)
+                                    {
+                                        @Ui.Icon("play", "mc-agenda__meeting")
+                                    }
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </section>
             }
         }
         <partial name="_Pager" model="Model.Pager" />

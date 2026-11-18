@@ -1,91 +1,86 @@
 @model CalendarAccountView
 @*
-    One account on the page "Konten": what it is, who keeps it in step and how the last sync went; below, what can be done with it.
+    One account on the page "Konten": what it is and who keeps it in step (a pill), how the last sync went (one line below), and what can be done with it.
 *@
 @{
     var a = Model;
     var cloud = a.Mode == CalendarSyncMode.Cloud;
-    var kindName = a.Account.Kind switch
-    {
-        CalendarAccountKind.Microsoft => "Microsoft 365",
-        CalendarAccountKind.Google => "Google Kalender",
-        CalendarAccountKind.Ics => "ICS-Abo",
-        _ => "Eigene Kalender",
-    };
-    var icon = a.Account.Kind switch
-    {
-        CalendarAccountKind.Microsoft => "briefcase",
-        CalendarAccountKind.Google => "globe",
-        CalendarAccountKind.Ics => "link",
-        _ => "calendar",
-    };
     var googleInBrowser = ViewData["GoogleInBrowser"] as bool? ?? true;
+    var meta = CalendarPages.KindName(a.Account.Kind)
+        + (a.Account.UserName.Length > 0 && a.Account.UserName != a.Account.Name ? " · " + a.Account.UserName : string.Empty)
+        + " · " + (a.Calendars == 1 ? "1 Kalender" : $"{a.Calendars} Kalender");
+    string pill, pillText, icon, text;
+    var warn = false;
+    if (!a.IsOnline)
+    {
+        (pill, pillText, icon, text) = ("mat-pill--accent", "In MatCloud", "cloud", "Immer in MatCloud – auf allen Geräten gleich.");
+    }
+    else if (!cloud)
+    {
+        (pill, pillText, icon, text) = ("mat-pill--info", "Auf den Computern", "monitor",
+            "Jeder Computer mit ThixCalendar meldet sich selbst an. Hier stehen nur die Kalender, nicht ihre Termine.");
+    }
+    else if (a.Cloud is null || !a.HasConnection)
+    {
+        (pill, pillText, icon, text) = ("mat-pill--warn", "Anmeldung nötig", "alert",
+            "Läuft über MatCloud, aber MatCloud hat noch keine Anmeldung: hier anmelden oder in ThixCalendar am Computer.");
+        warn = true;
+    }
+    else
+    {
+        var state = a.Cloud.State;
+        (pill, pillText, icon, text) = state switch
+        {
+            CalendarCloudState.Ready => ("mat-pill--ok", "Über MatCloud", "check-circle",
+                "MatCloud gleicht ab" + (a.Cloud.LastSync is { } last ? " · zuletzt " + Dates.Stamp(last.UtcDateTime) : string.Empty) + "."),
+            CalendarCloudState.Connecting => ("mat-pill--accent mat-pill--busy", "Erster Abgleich", "refresh", "MatCloud gleicht zum ersten Mal ab …"),
+            CalendarCloudState.SignInRequired => ("mat-pill--warn", "Anmeldung nötig", "alert", a.Cloud.Problem),
+            _ => ("mat-pill--error", "Abgleich gestört", "alert", "Der letzte Abgleich ging nicht: " + a.Cloud.Problem),
+        };
+        warn = state is CalendarCloudState.SignInRequired or CalendarCloudState.Failing;
+    }
 }
 <li class="mat-card mc-account">
     <div class="mat-card__body mc-account__body">
-        <span class="mc-account__icon" aria-hidden="true">@Ui.Icon(icon)</span>
+        <span class="mc-account__icon" aria-hidden="true">@Ui.Icon(CalendarPages.KindIcon(a.Account.Kind))</span>
         <div class="mc-account__text">
             <h2 class="mc-account__name">@a.Account.Name</h2>
-            <p class="mc-account__meta">@kindName@(a.Account.UserName.Length > 0 && a.Account.UserName != a.Account.Name ? " · " + a.Account.UserName : string.Empty) · @a.Calendars Kalender</p>
-            @if (!a.IsOnline)
-            {
-                <p class="mc-account__state">@Ui.Icon("cloud")<span>Immer in MatCloud – auf allen Geräten gleich.</span></p>
-            }
-            else if (!cloud)
-            {
-                <p class="mc-account__state">@Ui.Icon("monitor")<span>Läuft über die Computer: jeder Computer mit ThixCalendar meldet sich selbst an. Hier stehen nur die Kalender, nicht ihre Termine.</span></p>
-            }
-            else if (a.Cloud is null || !a.HasConnection)
-            {
-                <p class="mc-account__state is-warn">@Ui.Icon("alert")<span>Läuft über MatCloud, aber MatCloud hat noch keine Anmeldung: hier anmelden oder in ThixCalendar am Computer anmelden.</span></p>
-            }
-            else
-            {
-                var state = a.Cloud.State;
-                var text = state switch
-                {
-                    CalendarCloudState.Ready => "MatCloud gleicht ab" + (a.Cloud.LastSync is { } last ? " · zuletzt " + Dates.Stamp(last.UtcDateTime) : string.Empty),
-                    CalendarCloudState.Connecting => "MatCloud gleicht zum ersten Mal ab …",
-                    CalendarCloudState.SignInRequired => "Anmeldung nötig: " + a.Cloud.Problem,
-                    _ => "Der letzte Abgleich ging nicht: " + a.Cloud.Problem,
-                };
-                <p class="mc-account__state@(state is CalendarCloudState.SignInRequired or CalendarCloudState.Failing ? " is-warn" : string.Empty)">
-                    @Ui.Icon(state switch { CalendarCloudState.Ready => "check-circle", CalendarCloudState.Connecting => "refresh", _ => "alert" })<span>@text</span>
-                </p>
-            }
+            <p class="mc-account__meta">@meta</p>
         </div>
+        <span class="mat-pill @pill mc-account__pill">@pillText</span>
+        <p class="mc-account__state@(warn ? " is-warn" : string.Empty)">@Ui.Icon(icon)<span>@text</span></p>
     </div>
     @if (a.IsOnline)
     {
-        <div class="mat-card__foot mat-btn-row mc-account__actions">
+        <div class="mat-card__foot mc-account__actions">
             <form method="post" action="/Calendar/Accounts?handler=Mode" class="mc-inline">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="key" value="@a.Key" />
                 <input type="hidden" name="mode" value="@(cloud ? "Computers" : "Cloud")" />
-                <button type="submit" class="mat-btn@(cloud ? string.Empty : " mat-btn--primary")">@Ui.Icon(cloud ? "monitor" : "cloud")<span>@(cloud ? "Über die Computer abgleichen" : "Über MatCloud abgleichen")</span></button>
+                <button type="submit" class="mat-btn mat-btn--sm@(cloud ? " mat-btn--ghost" : " mat-btn--primary")">@Ui.Icon(cloud ? "monitor" : "cloud")<span>@(cloud ? "Über die Computer abgleichen" : "Über MatCloud abgleichen")</span></button>
             </form>
             @if (cloud && a.Account.Kind == CalendarAccountKind.Microsoft)
             {
-                <a class="mat-btn" href="/Calendar/Connect?account=@Uri.EscapeDataString(a.Key)">@Ui.Icon("login")<span>@(a.HasConnection ? "Neu anmelden" : "Anmelden")</span></a>
+                <a class="mat-btn mat-btn--sm@(a.HasConnection ? string.Empty : " mat-btn--primary")" href="/Calendar/Connect?account=@Uri.EscapeDataString(a.Key)">@Ui.Icon("login")<span>@(a.HasConnection ? "Neu anmelden" : "Anmelden")</span></a>
             }
             @if (cloud && a.Account.Kind == CalendarAccountKind.Google && googleInBrowser)
             {
-                <a class="mat-btn" href="/Calendar/Accounts?handler=Google&amp;account=@Uri.EscapeDataString(a.Key)">@Ui.Icon("login")<span>@(a.HasConnection ? "Neu anmelden" : "Anmelden")</span></a>
+                <a class="mat-btn mat-btn--sm@(a.HasConnection ? string.Empty : " mat-btn--primary")" href="/Calendar/Accounts?handler=Google&amp;account=@Uri.EscapeDataString(a.Key)">@Ui.Icon("login")<span>@(a.HasConnection ? "Neu anmelden" : "Anmelden")</span></a>
             }
             @if (cloud && a.HasConnection)
             {
                 <form method="post" action="/Calendar/Accounts?handler=Sync" class="mc-inline">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="key" value="@a.Key" />
-                    <button type="submit" class="mat-btn mat-btn--ghost">@Ui.Icon("refresh")<span>Jetzt abgleichen</span></button>
+                    <button type="submit" class="mat-btn mat-btn--sm mat-btn--ghost">@Ui.Icon("refresh")<span>Jetzt abgleichen</span></button>
                 </form>
             }
-            <span class="mat-btn-row__spacer"></span>
+            <span class="mc-account__gap"></span>
             <form method="post" action="/Calendar/Accounts?handler=Delete" class="mc-inline">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="key" value="@a.Key" />
-                <button type="submit" class="mat-btn mat-btn--danger" data-confirm="Das Konto „@a.Account.Name“ überall entfernen – auch in ThixCalendar auf deinen Computern?"
-                        data-confirm-ok="Entfernen" data-confirm-danger>@Ui.Icon("trash")<span>Entfernen</span></button>
+                <button type="submit" class="mat-btn mat-btn--sm mat-btn--ghost mc-account__delete" data-confirm="Das Konto „@a.Account.Name“ überall entfernen – auch in ThixCalendar auf deinen Computern?"
+                        data-confirm-ok="Entfernen" data-confirm-danger aria-label="Konto entfernen" data-tip="Entfernen">@Ui.Icon("trash")<span>Entfernen</span></button>
             </form>
         </div>
     }

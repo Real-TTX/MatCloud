@@ -21,7 +21,13 @@
     return !!document.querySelector('dialog[open], .mat-menu:not([hidden])');
   }
 
-  function refresh() {
+  function refresh(latest) {
+    // a page that loads its own data (the calendar: data-live-event) is only told; it does not get its HTML again
+    if (root.hasAttribute('data-live-event')) {
+      if (latest) { revision = Math.max(revision, latest); root.setAttribute('data-live-revision', String(revision)); }
+      document.dispatchEvent(new CustomEvent('mc:calendar-changed'));
+      return Promise.resolve();
+    }
     return fetch(location.href, { credentials: 'same-origin', headers: { 'Accept': 'text/html' }, cache: 'no-store' }).then(function (r) {
       if (r.status === 401 || r.redirected && /\/Account\/Login/.test(r.url)) { stopped = true; return; }
       if (!r.ok) { throw new Error('HTTP ' + r.status); }
@@ -59,7 +65,7 @@
         .then(function (answer) {
           failures = 0;
           if (!answer || answer.latest <= revision) { return; }
-          var wait = function () { return busy() ? sleep(1500).then(wait) : refresh(); };
+          var wait = function () { return busy() ? sleep(1500).then(wait) : refresh(answer.latest); };
           return wait();
         })
         .catch(function () {

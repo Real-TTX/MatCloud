@@ -52,7 +52,7 @@ public sealed class EventModel : AppPageModel
 
     [BindProperty] public string Reminder { get; set; } = string.Empty;
 
-    public async Task<IActionResult> OnGetAsync(string? key, string? src, string? date)
+    public async Task<IActionResult> OnGetAsync(string? key, string? src, string? date, string? time)
     {
         if (!await LoadAsync(key, src))
         {
@@ -64,6 +64,12 @@ public sealed class EventModel : AppPageModel
             var day = DateTime.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : Dates.Local(DateTime.UtcNow).Date;
             var start = day == Dates.Local(DateTime.UtcNow).Date ? Dates.Local(DateTime.UtcNow).AddHours(1) : day.AddHours(9);
             start = new DateTime(start.Year, start.Month, start.Day, start.Hour, 0, 0);
+            // a click into the time grid of the calendar gives the time it hit (half hours)
+            if (TimeSpan.TryParseExact(time, @"hh\:mm", CultureInfo.InvariantCulture, out var at) && at >= TimeSpan.Zero && at < TimeSpan.FromDays(1))
+            {
+                start = day.Date + at;
+            }
+
             Fill(start, start.AddHours(1));
             Calendar = Writable.FirstOrDefault()?.Key ?? string.Empty;
             return Page();

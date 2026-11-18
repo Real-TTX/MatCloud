@@ -2,10 +2,10 @@
 @model MatCloud.Apps.Calendar.Pages.Calendar.IndexModel
 @{
     ViewData["Title"] = "Kalender";
-    ViewData["PageSub"] = "Deine Kalender von ThixCalendar – auf allen Geräten gleich.";
     ViewData["Crumbs"] = new List<(string, string?)> { ("Kalender", null) };
     ViewData["Width"] = "wide";
-    var returnUrl = HttpContext.Request.Path + HttpContext.Request.QueryString;
+    ViewData["OwnHead"] = true;
+    ViewData["PageClass"] = "mc-cal-page";
     var any = Model.Calendars.Count > 0;
 }
 
@@ -13,147 +13,74 @@
     <partial name="_CalendarTopActions" />
 }
 
-@* The page reloads its grid when a device or the sync of MatCloud changes something (calendar-live.js waits on /live/calendar/revision). *@
-<div class="mc-cal" data-live data-live-revision="@Model.Latest">
-    @* ONE slim toolbar: ‹ Heute ›, the period, Woche | Monat *@
-    <div class="mc-cal__bar" role="toolbar" aria-label="Zeitraum">
-        <div class="mc-cal__nav">
-            <a class="mat-btn mat-btn--ghost mat-btn--icon" href="@Model.Previous" aria-label="Zurück" data-tip="Zurück">@Ui.Icon("chevron-left")</a>
-            <a class="mat-btn mat-btn--ghost" href="@Model.PeriodUrl(Model.Today)">Heute</a>
-            <a class="mat-btn mat-btn--ghost mat-btn--icon" href="@Model.Next" aria-label="Weiter" data-tip="Weiter">@Ui.Icon("chevron-right")</a>
-        </div>
-        <h2 class="mc-cal__title">@Model.Title</h2>
-        <div class="mat-seg" role="group" aria-label="Ansicht">
-            <a class="mat-seg__btn" href="@Model.PeriodUrl(Model.Date, "week")" aria-pressed="@(Model.View == "week" ? "true" : "false")">Woche</a>
-            <a class="mat-seg__btn" href="@Model.PeriodUrl(Model.Date, "month")" aria-pressed="@(Model.View == "month" ? "true" : "false")">Monat</a>
-        </div>
+@if (!any)
+{
+    <div class="mat-page__head">
+        <div class="mat-page__title"><h1>Kalender</h1></div>
     </div>
+    <partial name="_Empty" model="@(new EmptyStateModel("calendar", "Noch keine Kalender",
+        "Verbinde ThixCalendar in den Einstellungen unter „Cloud“ mit dieser MatCloud, oder verbinde hier unter „Konten“ ein Microsoft-, Google- oder ICS-Konto.",
+        true, "/Calendar/Accounts", "Konten öffnen"))" />
+}
+else
+{
+    @*
+        MatUI's schedule (LIST-14) draws the calendar: ONE slim bar (Heute ‹ ›, the period, Tag | Woche | Monat | Agenda), the time grid below.
+        calendar-schedule.js loads the events of what is shown (?handler=Events), gives them the colours of their calendars, keeps the address in step
+        and loads again when a device or MatCloud's sync changes something (calendar-live.js with data-live-event tells it).
+    *@
+    <div class="mc-cal" data-live data-live-event data-live-revision="@Model.Latest">
+        <h1 class="mat-sr-only">Kalender</h1>
+        <section class="mat-schedule mc-schedule" data-schedule data-lazy data-week-numbers aria-label="Kalender"
+                 data-view="@Model.View" data-views="day,week,month,agenda" data-date="@Model.Date.ToString("yyyy-MM-dd")"
+                 data-day-start="7" data-day-end="20" data-agenda="week" data-empty-days
+                 data-events-url="/Calendar?handler=Events" data-empty="In diesem Zeitraum steht nichts in den eingeblendeten Kalendern.">
+            <noscript><p>Der Kalender braucht JavaScript. Die Termine stehen auch unter <a href="/Calendar/Events">Termine</a>.</p></noscript>
+        </section>
 
-    <div class="mc-cal__body">
-        <div class="mc-live-region mc-cal__main" data-live-region>
-            @if (!any)
+        @* the calendars: switched on and off here, the choice travels to ThixCalendar on every computer *@
+        <aside class="mc-cal__side" aria-label="Meine Kalender">
+            <h2 class="mc-cal__side-title">Meine Kalender</h2>
+            @foreach (var group in Model.Calendars.GroupBy(c => c.Account))
             {
-                <partial name="_Empty" model="@(new EmptyStateModel("calendar", "Noch keine Kalender",
-                    "Verbinde ThixCalendar in den Einstellungen unter „Cloud“ mit dieser MatCloud, oder verbinde hier unter „Konten“ ein Microsoft-, Google- oder ICS-Konto.",
-                    true, "/Calendar/Accounts", "Konten öffnen"))" />
-            }
-            else if (Model.View == "week")
-            {
-                <ol class="mc-week" aria-label="Woche">
-                    @foreach (var day in Model.Days())
-                    {
-                        var events = Model.On(day).ToList();
-                        <li class="mc-week__day@(day == Model.Today ? " is-today" : "")@(day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? " is-weekend" : "")">
-                            <h3 class="mc-week__head">
-                                <span class="mc-week__name">@IndexModel.DayName(day)</span>
-                                <span class="mc-week__date">@day.Day.</span>
-                            </h3>
-                            @if (events.Count == 0)
-                            {
-                                <p class="mc-week__none">Keine Termine</p>
-                            }
-                            else
-                            {
-                                <ul class="mc-week__events">
-                                    @foreach (var e in events)
-                                    {
-                                        <li>
-                                            <a class="mc-event@(e.Data.IsAllDay ? " mc-event--allday" : "")@(e.IsCancelled || e.IsDeclined ? " is-off" : "")" href="@e.EditUrl"
-                                               data-color="@e.Calendar.Color" title="@e.Calendar.Name">
-                                                <span class="mc-event__time">@(e.Data.IsAllDay ? "Ganztägig" : (e.StartLocal.Date < day ? "…" : e.StartLocal.ToString("HH:mm")))</span>
-                                                <span class="mc-event__title">@e.Data.Title</span>
-                                                @if (e.Data.Location.Length > 0)
-                                                {
-                                                    <span class="mc-event__where">@e.Data.Location</span>
-                                                }
-                                            </a>
-                                        </li>
-                                    }
-                                </ul>
-                            }
-                        </li>
-                    }
-                </ol>
-            }
-            else
-            {
-                <div class="mc-month" role="grid" aria-label="@Model.Title">
-                    <div class="mc-month__row mc-month__names" role="row">
-                        @foreach (var name in new[] { "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So" })
+                var first = group.First();
+                <section class="mc-cal__group" aria-label="@first.AccountName">
+                    <h3 class="mc-cal__account">
+                        @Ui.Icon(IndexModel.KindIcon(first.Kind))
+                        <span class="mc-cal__account-name">@first.AccountName</span>
+                    </h3>
+                    <ul class="mc-cal__calendars">
+                        @foreach (var c in group)
                         {
-                            <span class="mc-month__name" role="columnheader">@name</span>
+                            <li>
+                                <form method="post" asp-page-handler="Show" class="mc-cal__calendar@(c.HasEvents ? string.Empty : " is-elsewhere")" data-color="@c.Color" data-cal-toggle>
+                                    <input type="hidden" name="key" value="@c.Key" />
+                                    <input type="hidden" name="returnUrl" value="@Model.PeriodUrl(Model.Date)" data-return-url />
+                                    <label class="mat-switch mc-cal__switch">
+                                        <input type="checkbox" name="visible" value="true" @(c.IsVisible ? "checked" : null) />
+                                        <span class="mat-switch__track"></span>
+                                        <span class="mc-cal__name">@c.Name</span>
+                                    </label>
+                                    @if (!c.HasEvents)
+                                    {
+                                        <span class="mc-cal__hint" data-tip="Läuft über die Computer: die Termine sind nur in ThixCalendar">@Ui.Icon("monitor")</span>
+                                    }
+                                    <noscript><button type="submit" class="mat-btn mat-btn--ghost mat-btn--sm">OK</button></noscript>
+                                </form>
+                            </li>
                         }
-                    </div>
-                    @foreach (var week in Model.Days().Chunk(7))
-                    {
-                        <div class="mc-month__row" role="row">
-                            @foreach (var day in week)
-                            {
-                                var events = Model.On(day).ToList();
-                                <div class="mc-month__day@(day.Month != Model.Month.Month ? " is-other" : "")@(day == Model.Today ? " is-today" : "")" role="gridcell">
-                                    <a class="mc-month__date" href="@Model.PeriodUrl(day, "week")" aria-label="@GermanDates.Long(day, year: false)">@day.Day</a>
-                                    @foreach (var e in events.Take(4))
-                                    {
-                                        <a class="mc-chip@(e.Data.IsAllDay ? " mc-chip--allday" : "")@(e.IsCancelled || e.IsDeclined ? " is-off" : "")" href="@e.EditUrl"
-                                           data-color="@e.Calendar.Color" title="@e.TimeText · @e.Data.Title">
-                                            @if (!e.Data.IsAllDay && e.StartLocal.Date == day)
-                                            {
-                                                <span class="mc-chip__time">@e.StartLocal.ToString("HH:mm")</span>
-                                            }
-                                            <span class="mc-chip__title">@e.Data.Title</span>
-                                        </a>
-                                    }
-                                    @if (events.Count > 4)
-                                    {
-                                        <a class="mc-month__more" href="@Model.PeriodUrl(day, "week")">+@(events.Count - 4) weitere</a>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
+                    </ul>
+                </section>
             }
-        </div>
-
-        @if (any)
-        {
-            @* the calendars: switched on and off here, the choice travels to ThixCalendar *@
-            <aside class="mat-card mc-cal__list" aria-label="Meine Kalender">
-                <div class="mat-card__body">
-                    <h2 class="mc-cal__list-title">Meine Kalender</h2>
-                    @foreach (var group in Model.Calendars.GroupBy(c => c.Account))
-                    {
-                        var first = group.First();
-                        <h3 class="mc-cal__account">@first.AccountName</h3>
-                        <ul class="mc-cal__calendars">
-                            @foreach (var c in group)
-                            {
-                                <li>
-                                    <form method="post" asp-page-handler="Show">
-                                        <input type="hidden" name="key" value="@c.Key" />
-                                        <input type="hidden" name="visible" value="@(c.IsVisible ? "false" : "true")" />
-                                        <input type="hidden" name="returnUrl" value="@returnUrl" />
-                                        <button type="submit" class="mc-cal__calendar@(c.IsVisible ? " is-on" : "")" data-color="@c.Color" aria-pressed="@(c.IsVisible ? "true" : "false")"
-                                                data-tip="@(c.HasEvents ? (c.IsVisible ? "Ausblenden" : "Einblenden") : "Läuft über die Computer: die Termine sind nur in ThixCalendar")">
-                                            <span class="mc-cal__dot" aria-hidden="true"></span>
-                                            <span class="mc-cal__name">@c.Name</span>
-                                            @if (!c.HasEvents)
-                                            {
-                                                @Ui.Icon("monitor", "mc-cal__hint")
-                                            }
-                                        </button>
-                                    </form>
-                                </li>
-                            }
-                        </ul>
-                    }
-                </div>
-            </aside>
-        }
+            <p class="mc-cal__side-foot">
+                <a class="mat-btn mat-btn--ghost mat-btn--sm" href="/Calendar/Accounts">@Ui.Icon("users")<span>Konten verwalten</span></a>
+            </p>
+        </aside>
     </div>
-</div>
+}
 
 @section Scripts {
     <script src="~/_content/MatCloud.Apps.Calendar/js/calendar-colors.js" asp-append-version="true"></script>
+    <script src="~/_content/MatCloud.Apps.Calendar/js/calendar-schedule.js" asp-append-version="true"></script>
     <script src="~/_content/MatCloud.Apps.Calendar/js/calendar-live.js" asp-append-version="true"></script>
 }

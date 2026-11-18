@@ -47,6 +47,24 @@ public static class CalendarPages
 {
     public static readonly IReadOnlyList<int> SyncIntervals = [5, 10, 15, 30, 60];
 
+    /// <summary>The icon of a kind of account (the same on every page).</summary>
+    public static string KindIcon(CalendarAccountKind kind) => kind switch
+    {
+        CalendarAccountKind.Microsoft => "briefcase",
+        CalendarAccountKind.Google => "globe",
+        CalendarAccountKind.Ics => "link",
+        _ => "calendar",
+    };
+
+    /// <summary>The name of a kind of account.</summary>
+    public static string KindName(CalendarAccountKind kind) => kind switch
+    {
+        CalendarAccountKind.Microsoft => "Microsoft 365",
+        CalendarAccountKind.Google => "Google Kalender",
+        CalendarAccountKind.Ics => "ICS-Abo",
+        _ => "Eigene Kalender",
+    };
+
     public static async Task<IReadOnlyList<CalendarEntry>> CalendarsAsync(AppDbContext db, Actor actor, CancellationToken ct)
     {
         RequireBrowser(actor);

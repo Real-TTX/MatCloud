@@ -1,85 +1,92 @@
 using System.Globalization;
 using MatCloud.Apps.Calendar.Business;
+using MatCloud.Contract.Calendar;
 using MatCloud.Core.Web;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MatCloud.Apps.Calendar.Pages.Calendar;
 
 /// <summary>
-/// "Kalender": a week or a month of the shown calendars, like ThixCalendar's calendar page – one slim toolbar (‹ Heute ›, the period, Woche | Monat),
-/// the grid below. The calendars are switched on and off in the list beside it (the choice travels to ThixCalendar).
+/// "Kalender": the shown calendars in MatUI's schedule (Tag | Woche | Monat | Agenda, like ThixCalendar's calendar page: one slim bar, the grid gets the room).
+/// The page itself carries the calendars (switched on and off beside the grid, the choice travels to ThixCalendar); the events of what is shown come from
+/// <see cref="OnGetEventsAsync"/> as JSON (calendar-schedule.js).
 /// </summary>
 public sealed class IndexModel : AppPageModel
 {
+    /// <summary>The widest span the events are given for at once (the agenda of a month with the weeks around it fits).</summary>
+    private const int MaxDays = 62;
 
     public string View { get; private set; } = "week";
 
     public DateTime Date { get; private set; }
 
-    /// <summary>The first day shown (a Monday) and the day after the last.</summary>
-    public DateTime From { get; private set; }
-
-    public DateTime To { get; private set; }
-
-    /// <summary>The month the month view is about.</summary>
-    public DateTime Month { get; private set; }
-
     public IReadOnlyList<CalendarEntry> Calendars { get; private set; } = [];
-
-    public IReadOnlyList<EventEntry> Events { get; private set; } = [];
 
     public long Latest { get; private set; }
 
     public DateTime Today { get; } = Dates.Local(DateTime.UtcNow).Date;
 
-    public string Title => View == "month"
-        ? GermanDates.MonthYear(Month)
-        : $"KW {ISOWeek.GetWeekOfYear(From)} · {GermanDates.Short(From)} – {GermanDates.Short(To.AddDays(-1), year: true)}";
-
     public string PeriodUrl(DateTime date, string? view = null) => $"/Calendar?view={view ?? View}&date={date:yyyy-MM-dd}";
 
-    public string Previous => PeriodUrl(View == "month" ? Month.AddMonths(-1) : Date.AddDays(-7));
-
-    public string Next => PeriodUrl(View == "month" ? Month.AddMonths(1) : Date.AddDays(7));
-
-    public IEnumerable<DateTime> Days()
-    {
-        for (var day = From; day < To; day = day.AddDays(1))
-        {
-            yield return day;
-        }
-    }
-
-    public IEnumerable<EventEntry> On(DateTime day) => Events.Where(e => e.Touches(day));
-
-    public static string DayName(DateTime day) => GermanDates.DayShort(day);
+    public static string KindIcon(CalendarAccountKind kind) => CalendarPages.KindIcon(kind);
 
     public async Task OnGetAsync(string? view, string? date)
     {
-        View = view == "month" ? "month" : "week";
-        Date = DateTime.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed.Date : Today;
-        if (View == "month")
-        {
-            Month = new DateTime(Date.Year, Date.Month, 1);
-            From = Monday(Month);
-            To = Monday(Month.AddMonths(1).AddDays(-1)).AddDays(7);
-        }
-        else
-        {
-            From = Monday(Date);
-            To = From.AddDays(7);
-            Month = new DateTime(Date.Year, Date.Month, 1);
-        }
-
+        View = view is "day" or "month" or "agenda" ? view : "week";
+        Date = ParseDate(date) ?? Today;
         var ct = HttpContext.RequestAborted;
         Latest = await CalendarPages.LatestAsync(Db, Actor, ct);
         Calendars = await CalendarPages.CalendarsAsync(Db, Actor, ct);
-        Events = await CalendarPages.EventsAsync(Db, Actor, Calendars, From, To, shownOnly: true, search: null, ct);
     }
 
+    /// <summary>
+    /// The events of the shown calendars on the local days <paramref name="from"/> … <paramref name="to"/> (both included) as MatUI's schedule takes them:
+    /// local times ("2026-11-18T09:00"; an all-day event as dates with its last day as the end), the address of the event, the colour of its calendar.
+    /// </summary>
+    public async Task<IActionResult> OnGetEventsAsync(string? from, string? to)
+    {
+        var first = ParseDate(from);
+        var last = ParseDate(to);
+        if (first is null || last is null || last < first || (last.Value - first.Value).TotalDays > MaxDays)
+        {
+            return BadRequest();
+        }
+
+        var ct = HttpContext.RequestAborted;
+        var calendars = await CalendarPages.CalendarsAsync(Db, Actor, ct);
+        var events = await CalendarPages.EventsAsync(Db, Actor, calendars, first.Value, last.Value.AddDays(1), shownOnly: true, search: null, ct);
+        Response.Headers.CacheControl = "no-store";
+        return new JsonResult(new
+        {
+            latest = await CalendarPages.LatestAsync(Db, Actor, ct),
+            events = events.Select(e => new
+            {
+                id = e.Key,
+                title = e.Data.Title.Length > 0 ? e.Data.Title : "(ohne Titel)",
+                start = e.Data.IsAllDay ? e.StartLocal.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : e.StartLocal.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
+                end = e.Data.IsAllDay
+                    ? (e.EndLocal > e.StartLocal ? e.EndLocal.AddDays(-1) : e.StartLocal).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                    : e.EndLocal.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
+                allDay = e.Data.IsAllDay,
+                location = e.Data.Location,
+                note = e.Calendar.Name,
+                status = e.IsCancelled ? "Abgesagt" : e.IsDeclined ? "Abgelehnt" : null,
+                url = e.EditUrl,
+                colour = e.Calendar.Color,
+                off = e.IsCancelled || e.IsDeclined,
+            }),
+        });
+    }
+
+    /// <summary>Shows or hides a calendar. calendar-schedule.js posts it in the background (the answer is all it needs); without script the page comes back.</summary>
     public async Task<IActionResult> OnPostShowAsync(string key, bool visible, string? returnUrl)
     {
         var outcome = await CalendarPages.SetVisibleAsync(Db, Actor, key, visible, HttpContext.RequestAborted);
+        if (Request.Headers.Accept.ToString().Contains("application/json", StringComparison.Ordinal))
+        {
+            return outcome.Ok ? new JsonResult(new { ok = true }) : NotFound();
+        }
+
         if (!outcome.Ok)
         {
             FlashError("Den Kalender gibt es nicht mehr.");
@@ -88,5 +95,6 @@ public sealed class IndexModel : AppPageModel
         return Back(returnUrl, "/Calendar");
     }
 
-    private static DateTime Monday(DateTime day) => day.Date.AddDays(-(((int)day.DayOfWeek + 6) % 7));
+    private static DateTime? ParseDate(string? text) =>
+        DateTime.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed.Date : null;
 }

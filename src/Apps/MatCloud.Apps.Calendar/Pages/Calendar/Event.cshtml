@@ -7,6 +7,7 @@
     ViewData["PageSub"] = Model.IsNew ? "Er steht sofort auch in ThixCalendar auf deinen Geräten."
         : $"{e!.Calendar.Name} · {e.Calendar.AccountName}" + (e.IsCloud ? " · über MatCloud" : string.Empty);
     ViewData["Crumbs"] = new List<(string, string?)> { ("Kalender", "/Calendar"), (Model.IsNew ? "Neuer Termin" : "Termin", null) };
+    ViewData["Width"] = "narrow";
     var calendars = Model.Writable.Select(c => new Choice(c.Key, c.Name, c.AccountName)).ToList();
     var back = Model.IsNew ? "/Calendar" : $"/Calendar?view=week&date={Model.StartDate}";
 }

@@ -16,7 +16,8 @@ devices in here and keeps its data the same on every PC and Mac of an account. T
   MatCloud keep (sync mode Cloud) it holds the Microsoft / Google sign-in (Data Protection) in the table CalendarConnection, a worker (`CalendarWorker`)
   pulls their calendars and events with ThixCalendar's own providers (a COPY in `ThixCalendar/`, copied by ThixCalendar's `tools/providers-copy.js`, held by
   `thixcalendar.version`) and writes them as items only MatCloud writes (`cloud-accounts`, `cloud-calendars`, `cloud-events`); events of such accounts
-  are changed at the provider first. Pages `/Calendar` (week, month), `/Calendar/Events`, `/Calendar/Event`, `/Calendar/Accounts` (sync mode, Microsoft
+  are changed at the provider first. Pages `/Calendar` (MatUI's schedule: day, week, month, agenda; the events as JSON from `?handler=Events`, in the colours of their
+  calendars; a click into the grid starts an event there; the calendars are switched beside it), `/Calendar/Events`, `/Calendar/Event`, `/Calendar/Accounts` (sync mode, Microsoft
   with a code, Google through the web client the administrator enters, ICS), `/Calendar/Settings`.
 - **Apps in the general sync** (everything else, ThixNote first): no code here. They keep items of their own choosing (collection + key + data) and
   MatCloud keeps them in step (last writer wins, tombstones, revisions, long poll).
@@ -103,8 +104,9 @@ src/Apps/MatCloud.Apps.Calendar (Razor class library) the module ThixCalendar: C
                             read), CalendarKeys (Data Protection, the registrations), CalendarAdmin (the Google web client), GermanDates (no culture data
                             in the container); ThixCalendar/ (COPY of ThixCalendar's providers and models, never edit; ThixCalendarStandIns.cs = Log,
                             AppInfo); Api/CalendarEndpoints (/api/v1/calendar for the devices, /live/calendar for the pages); Pages/Calendar (Index,
-                            Events, Event, Accounts, Connect, Google, Settings); wwwroot/js calendar-live.js, calendar-colors.js (the colours: no style
-                            attributes under the CSP), calendar-connect.js
+                            Events, Event, Accounts, Connect, Google, Settings); wwwroot/js calendar-schedule.js (loads, colours and links the
+                            schedule), calendar-live.js (with data-live-event it only tells the page), calendar-colors.js (the colours: no style
+                            attributes under the CSP), calendar-connect.js, calendar-accounts.js
 src/MatCloud                the host: Program (composition: modules, MatPlatform, MatIdentity, cookie, rate limit, body limit), Modules.cs (the list of
                             modules), Infrastructure (health check, migrations, design-time factory, setup redirect, forced password change, security
                             headers, housekeeping every hour, SeedAdminAsync: MATCLOUD_ADMIN_PASSWORD makes the first administrator), Platform/ (MatCloudPlatform: the MatApiDefinition, state, configure, actions, health;
