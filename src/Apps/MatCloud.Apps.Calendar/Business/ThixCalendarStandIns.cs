@@ -6,7 +6,18 @@ internal static class Log
 {
     public static Action<string>? Sink { get; set; }
 
-    public static void Warning(string message) => Sink?.Invoke(message);
+    /// <summary>Writes a warning; a log that fails (a logger of a host that has stopped) never breaks the sync.</summary>
+    public static void Warning(string message)
+    {
+        try
+        {
+            Sink?.Invoke(message);
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or AggregateException)
+        {
+            // the log is gone; the warning with it
+        }
+    }
 }
 
 /// <summary>What the providers send as user agent ("ThixCalendar/MatCloud").</summary>

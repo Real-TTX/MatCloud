@@ -25,7 +25,9 @@ public sealed record AdminAppView(AppView App, int Devices, int Accounts, AppUsa
 public static class AppService
 {
     private static readonly Lock Gate = new();
-    private static Dictionary<string, bool>? _enabled;
+    // per database (its connection string): one in the app, one per test in the tests that run side by side
+    private static readonly Dictionary<string, Dictionary<string, bool>> Enabled = [];
+    private static int _generation;
 
     public static string SwitchedOffText(string app) => $"{CloudApps.NameOf(app)} ist in dieser MatCloud ausgeschaltet. Bitte an die Administration wenden.";
 
@@ -160,24 +162,33 @@ public static class AppService
     {
         lock (Gate)
         {
-            _enabled = null;
+            Enabled.Clear();
+            _generation++;
         }
     }
 
     private static async Task<Dictionary<string, bool>> EnabledAsync(AppDbContext db, CancellationToken ct)
     {
+        var database = db.Database.GetConnectionString() ?? string.Empty;
+        int generation;
         lock (Gate)
         {
-            if (_enabled is not null)
+            if (Enabled.TryGetValue(database, out var known))
             {
-                return _enabled;
+                return known;
             }
+
+            generation = _generation;
         }
 
         var rows = await db.AppSettings.AsNoTracking().ToDictionaryAsync(a => a.App, a => a.IsEnabled, ct);
         lock (Gate)
         {
-            _enabled = rows;
+            // a switch that changed while it was read is read again next time
+            if (generation == _generation)
+            {
+                Enabled[database] = rows;
+            }
         }
 
         return rows;

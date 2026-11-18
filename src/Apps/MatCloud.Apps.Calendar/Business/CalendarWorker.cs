@@ -39,7 +39,8 @@ public sealed class CalendarWorker(IServiceScopeFactory scopes, ILogger<Calendar
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        ThixCalendar.Core.Infrastructure.Log.Sink = message => logger.LogWarning("Calendar provider: {Message}", message);
+        Action<string> sink = message => logger.LogWarning("Calendar provider: {Message}", message);
+        ThixCalendar.Core.Infrastructure.Log.Sink = sink;
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
@@ -63,6 +64,14 @@ public sealed class CalendarWorker(IServiceScopeFactory scopes, ILogger<Calendar
         catch (OperationCanceledException)
         {
             // the app stops
+        }
+        finally
+        {
+            // the logger goes with the app: the providers must not write into it afterwards (another host, the tests)
+            if (ThixCalendar.Core.Infrastructure.Log.Sink == sink)
+            {
+                ThixCalendar.Core.Infrastructure.Log.Sink = null;
+            }
         }
     }
 
