@@ -1,0 +1,131 @@
+@model MatCloud.Apps.Drive.Pages.Drive.DriveListPageModel
+@*
+    The actions below a list of the Drive (UI rule: below the list, left-aligned, from positive to negative, the delete set apart): in a folder first
+    "Hochladen" and "Neuer Ordner", then what works on the selection – download (one file), rename (one item), move – and, apart, the trash. drive.js
+    enables each button for the selection it needs (data-needs). The dialogs belong to the form "drive-selection", which carries the selected boxes.
+    ViewData: "CanCreate" (a folder page), "FolderId" (the folder of the page).
+*@
+@{
+    var canCreate = ViewData["CanCreate"] is true;
+    var folderId = ViewData["FolderId"] as long?;
+}
+
+<form id="drive-selection" method="post" hidden>
+    <input type="hidden" name="returnUrl" value="@Model.Here" />
+</form>
+
+<div class="mat-actions mc-drive__actions">
+    @if (canCreate)
+    {
+        <button type="button" class="mat-btn mat-btn--primary" data-dialog-open="drive-upload">@Ui.Icon("upload")<span>Hochladen</span></button>
+        <button type="button" class="mat-btn mat-btn--secondary" data-dialog-open="drive-folder">@Ui.Icon("folder-plus")<span>Neuer Ordner</span></button>
+    }
+    <a class="mat-btn mat-btn--secondary is-disabled" href="#" data-needs="one-file" data-download aria-disabled="true">@Ui.Icon("download")<span>Herunterladen</span></a>
+    <button type="button" class="mat-btn mat-btn--secondary" data-needs="one" data-dialog-open="drive-rename" disabled>@Ui.Icon("edit")<span>Umbenennen …</span></button>
+    <button type="button" class="mat-btn mat-btn--secondary" data-needs="some" data-dialog-open="drive-move" disabled>@Ui.Icon("folder-open")<span>Verschieben …</span></button>
+    <span class="mat-btn-row__spacer"></span>
+    <button type="submit" form="drive-selection" class="mat-btn mat-btn--danger" data-needs="some" formaction="?handler=Trash" disabled
+            data-confirm="Die ausgewählten Elemente in den Papierkorb legen? Sie bleiben dort @DriveContract.TrashDays Tage und lassen sich wiederherstellen.">@Ui.Icon("trash")<span>In den Papierkorb</span></button>
+</div>
+
+<dialog class="mat-dialog mat-dialog--sm" id="drive-rename" aria-labelledby="drive-rename-title">
+    <div class="mat-dialog__form">
+        <div class="mat-dialog__head">
+            @Ui.Icon("edit")
+            <h2 class="mat-dialog__title" id="drive-rename-title">Umbenennen</h2>
+            <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+        </div>
+        <div class="mat-dialog__body mat-form">
+            <div class="mat-field">
+                <label class="mat-label" for="drive-rename-name">Neuer Name</label>
+                <input class="mat-input" id="drive-rename-name" name="name" form="drive-selection" maxlength="@DriveContract.MaxNameLength" autocomplete="off" data-rename-name />
+            </div>
+        </div>
+        <div class="mat-dialog__foot">
+            <div class="mat-btn-row mat-btn-row--plain">
+                <button type="submit" form="drive-selection" formaction="?handler=Rename" class="mat-btn mat-btn--primary">@Ui.Icon("check")<span>Umbenennen</span></button>
+                <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<dialog class="mat-dialog mat-dialog--sm" id="drive-move" aria-labelledby="drive-move-title">
+    <div class="mat-dialog__form">
+        <div class="mat-dialog__head">
+            @Ui.Icon("folder-open")
+            <h2 class="mat-dialog__title" id="drive-move-title">Verschieben</h2>
+            <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+        </div>
+        <div class="mat-dialog__body mat-form">
+            <div class="mat-field">
+                <label class="mat-label" for="drive-move-target">Ziel</label>
+                <select class="mat-select" id="drive-move-target" name="target" form="drive-selection">
+                    <option value="">Meine Ablage (oberste Ebene)</option>
+                    @foreach (var (id, path) in Model.Folders)
+                    {
+                        <option value="@id" selected="@(id == folderId)">@path</option>
+                    }
+                </select>
+            </div>
+            <p class="mat-hint">Ein Ordner kann nicht in sich selbst verschoben werden; ein Name, der im Ziel schon vorkommt, wird abgelehnt.</p>
+        </div>
+        <div class="mat-dialog__foot">
+            <div class="mat-btn-row mat-btn-row--plain">
+                <button type="submit" form="drive-selection" formaction="?handler=Move" class="mat-btn mat-btn--primary">@Ui.Icon("folder-open")<span>Verschieben</span></button>
+                <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+@if (canCreate)
+{
+    <dialog class="mat-dialog mat-dialog--sm" id="drive-folder" aria-labelledby="drive-folder-title">
+        <form method="post" asp-page-handler="Folder" class="mat-dialog__form">
+            <input type="hidden" name="parent" value="@folderId" />
+            <input type="hidden" name="returnUrl" value="@Model.Here" />
+            <div class="mat-dialog__head">
+                @Ui.Icon("folder-plus")
+                <h2 class="mat-dialog__title" id="drive-folder-title">Neuer Ordner</h2>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+            </div>
+            <div class="mat-dialog__body mat-form">
+                <div class="mat-field">
+                    <label class="mat-label" for="drive-folder-name">Name</label>
+                    <input class="mat-input" id="drive-folder-name" name="name" required maxlength="@DriveContract.MaxNameLength" autocomplete="off" value="Neuer Ordner" />
+                </div>
+            </div>
+            <div class="mat-dialog__foot">
+                <div class="mat-btn-row mat-btn-row--plain">
+                    <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("folder-plus")<span>Anlegen</span></button>
+                    <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+
+    @* Upload: choose or drop files; each goes up in pieces with its progress (drive.js). A name that is taken asks: new version or keep both. *@
+    <dialog class="mat-dialog" id="drive-upload" aria-labelledby="drive-upload-title" data-upload-parent="@folderId">
+        <div class="mat-dialog__form">
+            <div class="mat-dialog__head">
+                @Ui.Icon("upload")
+                <h2 class="mat-dialog__title" id="drive-upload-title">Hochladen</h2>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+            </div>
+            <div class="mat-dialog__body">
+                <label class="mat-dropzone" data-upload-zone>
+                    @Ui.Icon("upload")
+                    <span>Dateien hierher ziehen oder <strong>auswählen</strong></span>
+                    <input type="file" multiple data-upload-input aria-label="Dateien auswählen" />
+                </label>
+                <ul class="mc-drive__uploads" data-upload-list aria-live="polite"></ul>
+            </div>
+            <div class="mat-dialog__foot">
+                <div class="mat-btn-row mat-btn-row--plain">
+                    <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Schließen</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+}

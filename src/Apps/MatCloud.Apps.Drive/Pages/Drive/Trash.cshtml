@@ -1,0 +1,51 @@
+@page "/Drive/Trash"
+@model MatCloud.Apps.Drive.Pages.Drive.TrashModel
+@{
+    ViewData["Title"] = "Papierkorb";
+    ViewData["PageSub"] = $"Gelöschtes bleibt {DriveContract.TrashDays} Tage hier und zählt so lange zum Speicherplatz.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Meine Ablage", "/Drive"), ("Papierkorb", null) };
+}
+
+@section TopActions {
+    <partial name="_DriveTopActions" />
+}
+
+<div class="mat-list mc-drive" data-live data-live-revision="@Model.Revision">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+    <div class="mc-live-region" data-live-region>
+        @if (Model.List.Items.Count == 0)
+        {
+            var first = Model.Toolbar.Total == 0;
+            <partial name="_Empty" model="@(new EmptyStateModel("trash", first ? "Der Papierkorb ist leer" : "Nichts gefunden",
+                first ? "Was du löschst, liegt zuerst hier und lässt sich wiederherstellen." : "Kein Element passt zur Suche oder zum Filter.",
+                first, null, null, first ? null : Model.Toolbar.UrlReset()))" />
+        }
+        else
+        {
+            <partial name="_DriveList" model="Model.List" />
+        }
+
+        @if (Model.Pager is not null)
+        {
+            <partial name="_Pager" model="Model.Pager" />
+        }
+    </div>
+
+    <form id="drive-selection" method="post" hidden></form>
+    @if (Model.Toolbar.Total > 0)
+    {
+        <div class="mat-actions mc-drive__actions">
+            <button type="submit" form="drive-selection" formaction="?handler=Restore" class="mat-btn mat-btn--primary" data-needs="some" disabled>@Ui.Icon("restore")<span>Wiederherstellen</span></button>
+            <span class="mat-btn-row__spacer"></span>
+            <button type="submit" form="drive-selection" formaction="?handler=Delete" class="mat-btn mat-btn--danger" data-needs="some" disabled
+                    data-confirm="Die ausgewählten Elemente endgültig löschen, mit allen Versionen? Das lässt sich nicht rückgängig machen.">@Ui.Icon("trash")<span>Endgültig löschen</span></button>
+            <form method="post" asp-page-handler="Empty" class="mc-inline-form" data-confirm="Den ganzen Papierkorb endgültig leeren? Das lässt sich nicht rückgängig machen.">
+                <button type="submit" class="mat-btn mat-btn--danger">@Ui.Icon("trash")<span>Papierkorb leeren</span></button>
+            </form>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Drive/js/drive.js" asp-append-version="true"></script>
+}

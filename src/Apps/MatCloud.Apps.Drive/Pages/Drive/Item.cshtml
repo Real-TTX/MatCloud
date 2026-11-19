@@ -1,0 +1,153 @@
+@page "/Drive/Item"
+@model MatCloud.Apps.Drive.Pages.Drive.ItemModel
+@using MatCloud.Apps.Drive.Pages.Drive
+@{
+    var item = Model.Item;
+    var file = item.Kind == DriveItemKind.File;
+    var office = DriveUi.OfficeBrandOf(item);
+    ViewData["Title"] = item.Name;
+    ViewData["PageSub"] = item.IsTrashed ? "Liegt im Papierkorb." : DriveUi.KindOf(item);
+    var crumbs = new List<(string, string?)> { ("Meine Ablage", "/Drive") };
+    if (item.IsTrashed)
+    {
+        crumbs.Add(("Papierkorb", "/Drive/Trash"));
+    }
+    else
+    {
+        foreach (var a in item.Ancestors ?? []) { crumbs.Add((a.Name, $"/Drive?folder={a.Id}")); }
+    }
+    crumbs.Add((item.Name, null));
+    ViewData["Crumbs"] = crumbs;
+}
+
+@section TopActions {
+    <partial name="_DriveTopActions" />
+}
+
+<partial name="_ItemTabs" model='(item, "general")' />
+
+<div class="mat-card">
+    <div class="mat-card__body mc-drive__head">
+        <span class="mc-drive__icon mc-drive__icon--big mc-drive__icon--@DriveTypes.CategoryOf(item.Kind, item.Name)">@Ui.Icon(DriveUi.IconOf(item))</span>
+        <dl class="mc-facts">
+            <dt>@Ui.Icon("file")Typ</dt>
+            <dd>@DriveUi.KindOf(item)</dd>
+            @if (file)
+            {
+                <dt>@Ui.Icon("hard-drive")Größe</dt>
+                <dd>@Ui.Bytes(item.Size)</dd>
+                <dt>@Ui.Icon("history")Version</dt>
+                <dd><a href="/Drive/Item/Versions?id=@item.Id">@item.Version</a></dd>
+            }
+            <dt>@Ui.Icon("folder")Ordner</dt>
+            <dd><a href="@DriveUi.FolderUrl(item.ParentId)">@(item.Location == "/" ? "Meine Ablage" : item.Location)</a></dd>
+            <dt>@Ui.Icon("clock")Geändert</dt>
+            <dd>@Dates.Stamp(item.ModifiedAt.UtcDateTime)@(item.ModifiedBy is null ? "" : " · " + item.ModifiedBy)</dd>
+            <dt>@Ui.Icon("calendar")Angelegt</dt>
+            <dd>@Dates.Stamp(item.CreatedAt.UtcDateTime)</dd>
+            @if (item.TrashedAt is { } trashed)
+            {
+                <dt>@Ui.Icon("trash")Gelöscht</dt>
+                <dd>@Dates.Stamp(trashed.UtcDateTime) – endgültig nach @DriveContract.TrashDays Tagen</dd>
+            }
+        </dl>
+    </div>
+</div>
+
+@if (office is not null && !item.IsTrashed)
+{
+    @* "Öffnen mit" in the browser comes from the apps that registered for it (DriveOpeners: none yet); the office apps on the computer reach the file themselves. *@
+    <p class="mat-hint mc-drive__hint">@Ui.Icon("info")<span>@office.Name öffnet und speichert dieses Dokument direkt in der Ablage, sobald es auf dem Computer mit dieser MatCloud verbunden ist. Jedes Speichern wird eine neue Version.</span></p>
+}
+
+@if (item.IsTrashed)
+{
+    <div class="mat-actions">
+        <form method="post" asp-page-handler="Restore" asp-route-id="@item.Id" class="mc-inline-form">
+            <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("restore")<span>Wiederherstellen</span></button>
+        </form>
+        <span class="mat-btn-row__spacer"></span>
+        <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" class="mc-inline-form" data-confirm="„@item.Name“ endgültig löschen, mit allen Versionen? Das lässt sich nicht rückgängig machen.">
+            <button type="submit" class="mat-btn mat-btn--danger">@Ui.Icon("trash")<span>Endgültig löschen</span></button>
+        </form>
+    </div>
+}
+else
+{
+    <div class="mat-actions">
+        @if (file)
+        {
+            <a class="mat-btn mat-btn--primary" href="/live/drive/@item.Id/download">@Ui.Icon("download")<span>Herunterladen</span></a>
+        }
+        else
+        {
+            <a class="mat-btn mat-btn--primary" href="@DriveUi.UrlOf(item)">@Ui.Icon("folder-open")<span>Öffnen</span></a>
+        }
+        @foreach (var opener in Model.Openers)
+        {
+            <a class="mat-btn mat-btn--secondary" href="@opener.Url">@Ui.Icon("external")<span>@opener.Label</span></a>
+        }
+        <button type="button" class="mat-btn mat-btn--secondary" data-dialog-open="item-rename">@Ui.Icon("edit")<span>Umbenennen …</span></button>
+        <button type="button" class="mat-btn mat-btn--secondary" data-dialog-open="item-move">@Ui.Icon("folder-open")<span>Verschieben …</span></button>
+        <form method="post" asp-page-handler="Copy" asp-route-id="@item.Id" class="mc-inline-form">
+            <button type="submit" class="mat-btn mat-btn--secondary">@Ui.Icon("copy")<span>Kopie anlegen</span></button>
+        </form>
+        <form method="post" asp-page-handler="Star" asp-route-id="@item.Id" asp-route-on="@(!item.IsStarred)" class="mc-inline-form">
+            <button type="submit" class="mat-btn mat-btn--secondary mc-star @(item.IsStarred ? "is-on" : "")" aria-pressed="@(item.IsStarred ? "true" : "false")">@Ui.Icon("star")<span>@(item.IsStarred ? "Stern entfernen" : "Stern setzen")</span></button>
+        </form>
+        <span class="mat-btn-row__spacer"></span>
+        <form method="post" asp-page-handler="Trash" asp-route-id="@item.Id" class="mc-inline-form" data-confirm="„@item.Name“ in den Papierkorb legen?">
+            <button type="submit" class="mat-btn mat-btn--danger">@Ui.Icon("trash")<span>In den Papierkorb</span></button>
+        </form>
+    </div>
+
+    <dialog class="mat-dialog mat-dialog--sm" id="item-rename" aria-labelledby="item-rename-title">
+        <form method="post" asp-page-handler="Rename" asp-route-id="@item.Id" class="mat-dialog__form">
+            <div class="mat-dialog__head">
+                @Ui.Icon("edit")
+                <h2 class="mat-dialog__title" id="item-rename-title">Umbenennen</h2>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+            </div>
+            <div class="mat-dialog__body mat-form">
+                <div class="mat-field">
+                    <label class="mat-label" for="item-rename-name">Neuer Name</label>
+                    <input class="mat-input" id="item-rename-name" name="name" value="@item.Name" required maxlength="@DriveContract.MaxNameLength" autocomplete="off" />
+                </div>
+            </div>
+            <div class="mat-dialog__foot">
+                <div class="mat-btn-row mat-btn-row--plain">
+                    <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("check")<span>Umbenennen</span></button>
+                    <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="mat-dialog mat-dialog--sm" id="item-move" aria-labelledby="item-move-title">
+        <form method="post" asp-page-handler="Move" asp-route-id="@item.Id" class="mat-dialog__form">
+            <div class="mat-dialog__head">
+                @Ui.Icon("folder-open")
+                <h2 class="mat-dialog__title" id="item-move-title">Verschieben</h2>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+            </div>
+            <div class="mat-dialog__body mat-form">
+                <div class="mat-field">
+                    <label class="mat-label" for="item-move-target">Ziel</label>
+                    <select class="mat-select" id="item-move-target" name="target">
+                        <option value="">Meine Ablage (oberste Ebene)</option>
+                        @foreach (var (id, path) in Model.Folders)
+                        {
+                            <option value="@id" selected="@(id == item.ParentId)">@path</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="mat-dialog__foot">
+                <div class="mat-btn-row mat-btn-row--plain">
+                    <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("folder-open")<span>Verschieben</span></button>
+                    <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+}

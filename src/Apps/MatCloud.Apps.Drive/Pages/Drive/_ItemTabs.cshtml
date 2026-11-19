@@ -1,0 +1,9 @@
+@model (DriveItem Item, string Tab)
+@* The areas of an item (UI rule: one item with several areas has tabs): "Allgemein" and, for a file, its versions. *@
+@if (Model.Item.Kind == DriveItemKind.File)
+{
+    <mc-tabs label="Datei">
+        <mc-tab href="/Drive/Item?id=@Model.Item.Id" active="@(Model.Tab == "general")" icon="info">Allgemein</mc-tab>
+        <mc-tab href="/Drive/Item/Versions?id=@Model.Item.Id" active="@(Model.Tab == "versions")" icon="history">Versionen</mc-tab>
+    </mc-tabs>
+}

@@ -1,0 +1,52 @@
+@page "/Drive/Item/Versions"
+@model MatCloud.Apps.Drive.Pages.Drive.VersionsModel
+@using MatCloud.Apps.Drive.Pages.Drive
+@{
+    var item = Model.Item;
+    ViewData["Title"] = item.Name;
+    ViewData["PageSub"] = "Jedes Speichern – im Browser, in ThixWrite, ThixCalc oder ThixShow – ist eine Version. Ältere Versionen zählen zum Speicherplatz.";
+    var crumbs = new List<(string, string?)> { ("Meine Ablage", "/Drive") };
+    foreach (var a in item.Ancestors ?? []) { crumbs.Add((a.Name, $"/Drive?folder={a.Id}")); }
+    crumbs.Add((item.Name, $"/Drive/Item?id={item.Id}"));
+    crumbs.Add(("Versionen", null));
+    ViewData["Crumbs"] = crumbs;
+}
+
+@section TopActions {
+    <partial name="_DriveTopActions" />
+}
+
+<partial name="_ItemTabs" model='(item, "versions")' />
+
+<mc-table caption="Versionen">
+    <thead>
+        <tr><th scope="col">Version</th><th scope="col">Gespeichert</th><th scope="col">Von</th><th scope="col" class="mat-num">Größe</th><th scope="col"><span class="mat-sr-only">Aktionen</span></th></tr>
+    </thead>
+    <tbody>
+        @foreach (var v in Model.Versions)
+        {
+            <tr>
+                <td data-label="Version">@v.Number @if (v.IsCurrent) { <span class="mat-pill mat-pill--accent">Aktuell</span> }</td>
+                <td data-label="Gespeichert">@Dates.Stamp(v.CreatedAt.UtcDateTime)</td>
+                <td data-label="Von">@DriveUi.SourceOf(v.Source, v.App)</td>
+                <td data-label="Größe" class="mat-num mat-mono">@Ui.Bytes(v.Size)</td>
+                <td class="mc-drive__row-actions">
+                    <a class="mat-btn mat-btn--ghost mat-btn--sm" href="/live/drive/@item.Id/download?version=@v.Id">@Ui.Icon("download")<span>Herunterladen</span></a>
+                    @if (!v.IsCurrent && !item.IsTrashed)
+                    {
+                        <form method="post" asp-page-handler="Restore" asp-route-id="@item.Id" asp-route-version="@v.Id" class="mc-inline-form">
+                            <button type="submit" class="mat-btn mat-btn--ghost mat-btn--sm">@Ui.Icon("restore")<span>Wiederherstellen</span></button>
+                        </form>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" asp-route-version="@v.Id" class="mc-inline-form" data-confirm="Version @v.Number endgültig löschen?">
+                            <button type="submit" class="mat-btn mat-btn--ghost mat-btn--sm mc-danger-text">@Ui.Icon("trash")<span>Löschen</span></button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</mc-table>
+
+<div class="mat-actions">
+    <a class="mat-btn mat-btn--secondary" href="/Drive/Item?id=@item.Id">@Ui.Icon("back")<span>Zurück</span></a>
+</div>

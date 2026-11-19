@@ -1,0 +1,53 @@
+@page "/Drive"
+@model MatCloud.Apps.Drive.Pages.Drive.IndexModel
+@{
+    var title = Model.Searching ? "Suche" : Model.Folder?.Name ?? "Meine Ablage";
+    ViewData["Title"] = title;
+    ViewData["PageSub"] = Model.Searching
+        ? $"Alles in deiner Ablage, dessen Name „{Model.Toolbar.Search}“ enthält."
+        : Model.Folder is null ? "Deine Dateien – im Browser und in ThixWrite, ThixCalc und ThixShow." : null;
+    var crumbs = new List<(string, string?)> { ("Meine Ablage", "/Drive") };
+    foreach (var a in Model.Ancestors)
+    {
+        crumbs.Add((a.Name, a.Id == Model.FolderId ? null : $"/Drive?folder={a.Id}"));
+    }
+    if (Model.Searching) { crumbs.Add(("Suche", null)); }
+    ViewData["Crumbs"] = crumbs;
+    ViewData["CanCreate"] = !Model.Searching;
+    ViewData["FolderId"] = Model.FolderId;
+}
+
+@section TopActions {
+    <partial name="_DriveTopActions" />
+}
+
+@* The list reloads itself when a device or another tab changes the Drive (drive.js waits on /live/drive/revision); files dropped on it are uploaded here. *@
+<div class="mat-list mc-drive" data-live data-live-revision="@Model.Revision" data-drop-target="@(Model.Searching ? null : "")">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+
+    <div class="mc-live-region" data-live-region>
+        @if (Model.List.Items.Count == 0)
+        {
+            var first = Model.Toolbar.Total == 0 && !Model.Searching;
+            <partial name="_Empty" model="@(new EmptyStateModel(first ? "folder" : "search", first ? (Model.Folder is null ? "Noch keine Dateien" : "Dieser Ordner ist leer") : "Nichts gefunden",
+                first ? "Lade Dateien hoch (auch per Ziehen und Ablegen) oder lege einen Ordner an. Was ThixWrite, ThixCalc und ThixShow hier speichern, erscheint ebenfalls."
+                      : "Kein Element passt zur Suche oder zum Filter.",
+                first, null, null, first ? null : Model.Toolbar.UrlReset()))" />
+        }
+        else
+        {
+            <partial name="_DriveList" model="Model.List" />
+        }
+
+        @if (Model.Pager is not null)
+        {
+            <partial name="_Pager" model="Model.Pager" />
+        }
+    </div>
+
+    <partial name="_DriveActions" model="Model" />
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Drive/js/drive.js" asp-append-version="true"></script>
+}

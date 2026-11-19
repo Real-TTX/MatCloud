@@ -30,6 +30,16 @@
                 @Ui.Icon("sort")<span>Sortieren</span>@if (Model.SortActive) { <small>@Model.SortLabel @(Model.Descending ? "↓" : "↑")</small> }
             </button>
         }
+        @if (Model.Views.Count > 0)
+        {
+            @* the ways to show the list: links (the choice is part of the address, like the sort) *@
+            <span class="mc-views" role="group" aria-label="Ansicht">
+                @foreach (var v in Model.Views)
+                {
+                    <a class="mat-btn mat-btn--ghost mat-btn--icon mat-toolbar__btn @(v.Active ? "is-active" : "")" href="@v.Url" aria-label="@v.Label" data-tip="@v.Label" aria-current="@(v.Active ? "true" : null)">@Ui.Icon(v.Icon)</a>
+                }
+            </span>
+        }
     </div>
 </div>
 
@@ -108,8 +118,8 @@
                 <fieldset class="mat-field mat-fieldset">
                     <legend class="mat-label">Reihenfolge</legend>
                     <div class="mat-options">
-                        <label class="mat-option"><input type="radio" id="@id-dir-desc" name="dir" value="desc" form="@form" checked="@Model.Descending" /><span>Neueste zuerst</span></label>
-                        <label class="mat-option"><input type="radio" id="@id-dir-asc" name="dir" value="asc" form="@form" checked="@(!Model.Descending)" /><span>Älteste zuerst</span></label>
+                        <label class="mat-option"><input type="radio" id="@id-dir-desc" name="dir" value="desc" form="@form" checked="@Model.Descending" /><span>@Model.DescendingLabel</span></label>
+                        <label class="mat-option"><input type="radio" id="@id-dir-asc" name="dir" value="asc" form="@form" checked="@(!Model.Descending)" /><span>@Model.AscendingLabel</span></label>
                     </div>
                 </fieldset>
             </div>

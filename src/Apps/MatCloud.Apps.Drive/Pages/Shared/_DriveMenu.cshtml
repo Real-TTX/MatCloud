@@ -1,2 +1,23 @@
 @model bool
-<nav class="mat-nav__scroll" aria-label="Ablage" data-nav-panel="@CloudApps.Drive" hidden="@(!Model)"></nav>
+@*
+    The menu of the Drive (the module ThixDrive): the main action first (upload), then the views of the Drive – the folders, recent, starred, the trash.
+    Model: whether it is the menu shown.
+*@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    var files = path.Equals("/Drive", StringComparison.OrdinalIgnoreCase) || Menu.Under(path, "/Drive/Item");
+    var recent = Menu.Under(path, "/Drive/Recent");
+    var starred = Menu.Under(path, "/Drive/Starred");
+    var trash = Menu.Under(path, "/Drive/Trash");
+}
+<nav class="mat-nav__scroll" aria-label="Ablage" data-nav-panel="@CloudApps.Drive" hidden="@(!Model)">
+    <ul class="mat-nav__list">
+        <li><a class="mat-nav__item mat-nav__item--primary" href="/Drive?upload=1">@Ui.Icon("upload")<span>Hochladen</span></a></li>
+        <li><a class="@Cls(files)" href="/Drive" aria-current="@Cur(files)">@Ui.Icon("folder")<span>Meine Ablage</span></a></li>
+        <li><a class="@Cls(recent)" href="/Drive/Recent" aria-current="@Cur(recent)">@Ui.Icon("clock")<span>Zuletzt verwendet</span></a></li>
+        <li><a class="@Cls(starred)" href="/Drive/Starred" aria-current="@Cur(starred)">@Ui.Icon("star")<span>Mit Stern</span></a></li>
+        <li><a class="@Cls(trash)" href="/Drive/Trash" aria-current="@Cur(trash)">@Ui.Icon("trash")<span>Papierkorb</span></a></li>
+    </ul>
+</nav>

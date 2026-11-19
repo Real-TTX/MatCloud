@@ -1,0 +1,74 @@
+@model MatCloud.Apps.Drive.Pages.Drive.DriveListView
+@using MatCloud.Apps.Drive.Pages.Drive
+@*
+    The rows of a list of the Drive: a table (name with the icon of its type, changed, size, the folder when the list is not one folder) or tiles. Every row
+    has a box to select it (the actions below the list work on the selection: drive.js enables them) and – outside the trash – its star. A folder opens
+    the folder, a file its page. The boxes belong to the form "drive-selection" of the page.
+*@
+@{
+    var trash = Model.Trash;
+}
+@if (!Model.Tiles)
+{
+    <mc-table caption="Dateien und Ordner">
+        <thead>
+            <tr>
+                <th scope="col" class="mc-drive__check"><input type="checkbox" class="mc-drive__box" data-select-all form="drive-selection" aria-label="Alle auswählen" /></th>
+                <th scope="col">Name</th>
+                @if (Model.ShowLocation) { <th scope="col" class="mc-drive__wide">Ordner</th> }
+                <th scope="col" class="mc-drive__wide">@(trash ? "Gelöscht" : "Geändert")</th>
+                <th scope="col" class="mat-num">Größe</th>
+                @if (!trash) { <th scope="col"><span class="mat-sr-only">Stern</span></th> }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr data-item="@item.Id" data-kind="@(item.Kind == DriveItemKind.Folder ? "folder" : "file")" data-name="@item.Name">
+                    <td class="mc-drive__check"><input type="checkbox" class="mc-drive__box" name="ids" value="@item.Id" form="drive-selection" data-select-row aria-label="„@item.Name“ auswählen" /></td>
+                    <td data-label="Name" class="mc-drive__name">
+                        <a href="@DriveUi.UrlOf(item)" class="mc-drive__link">
+                            <span class="mc-drive__icon mc-drive__icon--@DriveTypes.CategoryOf(item.Kind, item.Name)">@Ui.Icon(DriveUi.IconOf(item))</span>
+                            <span class="mc-drive__title">@item.Name</span>
+                        </a>
+                        <span class="mc-drive__kind">@DriveUi.KindOf(item)@(item.ModifiedBy is null || item.Kind == DriveItemKind.Folder ? "" : " · " + item.ModifiedBy)<span class="mc-drive__phone"> · @Dates.Short((trash ? item.TrashedAt ?? item.ModifiedAt : item.ModifiedAt).UtcDateTime)@(item.Kind == DriveItemKind.Folder ? "" : " · " + DriveUi.SizeOf(item))</span></span>
+                    </td>
+                    @if (Model.ShowLocation)
+                    {
+                        <td data-label="Ordner" class="mc-drive__wide"><a href="@DriveUi.FolderUrl(item.ParentId)">@(item.Location == "/" ? "Meine Ablage" : item.Location)</a></td>
+                    }
+                    <td data-label="@(trash ? "Gelöscht" : "Geändert")" class="mc-drive__wide">@Dates.Short((trash ? item.TrashedAt ?? item.ModifiedAt : item.ModifiedAt).UtcDateTime)</td>
+                    <td data-label="Größe" class="mat-num mat-mono mc-drive__size">@DriveUi.SizeOf(item)</td>
+                    @if (!trash)
+                    {
+                        <td class="mc-drive__star">
+                            <form method="post" asp-page-handler="Star" asp-route-id="@item.Id" asp-route-on="@(!item.IsStarred)">
+                                <input type="hidden" name="returnUrl" value="@Model.Here" />
+                                <button type="submit" class="mat-btn mat-btn--ghost mat-btn--icon mc-star @(item.IsStarred ? "is-on" : "")" aria-pressed="@(item.IsStarred ? "true" : "false")"
+                                        aria-label="@(item.IsStarred ? $"Stern von „{item.Name}“ entfernen" : $"„{item.Name}“ mit Stern markieren")" data-tip="@(item.IsStarred ? "Mit Stern" : "Stern setzen")">@Ui.Icon("star")</button>
+                            </form>
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </mc-table>
+}
+else
+{
+    <ul class="mat-gallery mc-drive__tiles" aria-label="Dateien und Ordner">
+        @foreach (var item in Model.Items)
+        {
+            <li class="mat-tile mc-drive__tile" data-item="@item.Id" data-kind="@(item.Kind == DriveItemKind.Folder ? "folder" : "file")" data-name="@item.Name">
+                <a class="mc-drive__tile-link" href="@DriveUi.UrlOf(item)">
+                    <span class="mat-tile__media mc-drive__icon mc-drive__icon--@DriveTypes.CategoryOf(item.Kind, item.Name)">@Ui.Icon(DriveUi.IconOf(item))</span>
+                    <span class="mat-tile__body">
+                        <span class="mat-tile__title">@item.Name</span>
+                        <span class="mat-tile__meta">@(item.Kind == DriveItemKind.Folder ? "Ordner" : DriveUi.SizeOf(item)) · @Dates.Short((trash ? item.TrashedAt ?? item.ModifiedAt : item.ModifiedAt).UtcDateTime)</span>
+                    </span>
+                </a>
+                <label class="mc-drive__tile-check"><input type="checkbox" class="mc-drive__box" name="ids" value="@item.Id" form="drive-selection" data-select-row aria-label="„@item.Name“ auswählen" /></label>
+            </li>
+        }
+    </ul>
+}

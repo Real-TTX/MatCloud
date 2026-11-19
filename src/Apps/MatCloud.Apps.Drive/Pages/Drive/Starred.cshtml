@@ -1,0 +1,38 @@
+@page "/Drive/Starred"
+@model MatCloud.Apps.Drive.Pages.Drive.StarredModel
+@{
+    ViewData["Title"] = "Mit Stern";
+    ViewData["PageSub"] = "Was du mit einem Stern markiert hast – schnell wiederzufinden.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Meine Ablage", "/Drive"), ("Mit Stern", null) };
+}
+
+@section TopActions {
+    <partial name="_DriveTopActions" />
+}
+
+<div class="mat-list mc-drive" data-live data-live-revision="@Model.Revision">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+    <div class="mc-live-region" data-live-region>
+        @if (Model.List.Items.Count == 0)
+        {
+            var first = Model.Toolbar.Total == 0;
+            <partial name="_Empty" model="@(new EmptyStateModel("star", first ? "Noch keine Sterne" : "Nichts gefunden",
+                first ? "Markiere Dateien und Ordner in der Liste mit dem Stern – sie stehen dann hier." : "Kein Element passt zum Filter.",
+                first, null, null, first ? null : Model.Toolbar.UrlReset()))" />
+        }
+        else
+        {
+            <partial name="_DriveList" model="Model.List" />
+        }
+
+        @if (Model.Pager is not null)
+        {
+            <partial name="_Pager" model="Model.Pager" />
+        }
+    </div>
+    <partial name="_DriveActions" model="Model" />
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Drive/js/drive.js" asp-append-version="true"></script>
+}

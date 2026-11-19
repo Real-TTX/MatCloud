@@ -1,0 +1,33 @@
+@page "/Drive/Recent"
+@model MatCloud.Apps.Drive.Pages.Drive.RecentModel
+@{
+    ViewData["Title"] = "Zuletzt verwendet";
+    ViewData["PageSub"] = "Was du zuletzt geöffnet oder gespeichert hast – im Browser und in ThixWrite, ThixCalc und ThixShow.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Meine Ablage", "/Drive"), ("Zuletzt verwendet", null) };
+}
+
+@section TopActions {
+    <partial name="_DriveTopActions" />
+}
+
+<div class="mat-list mc-drive" data-live data-live-revision="@Model.Revision">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+    <div class="mc-live-region" data-live-region>
+        @if (Model.List.Items.Count == 0)
+        {
+            var first = Model.Toolbar.Total == 0;
+            <partial name="_Empty" model="@(new EmptyStateModel("clock", first ? "Noch nichts verwendet" : "Nichts gefunden",
+                first ? "Sobald du eine Datei herunterlädst oder in ThixWrite, ThixCalc oder ThixShow öffnest oder speicherst, steht sie hier." : "Keine Datei passt zum Filter.",
+                first, null, null, first ? null : Model.Toolbar.UrlReset()))" />
+        }
+        else
+        {
+            <partial name="_DriveList" model="Model.List" />
+        }
+    </div>
+    <partial name="_DriveActions" model="Model" />
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Drive/js/drive.js" asp-append-version="true"></script>
+}

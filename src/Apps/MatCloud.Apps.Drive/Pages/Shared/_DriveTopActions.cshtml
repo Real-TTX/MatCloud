@@ -1,0 +1,12 @@
+@* The main action of the Drive in the top bar (every page of the module): upload, into the folder of the page or at the top. *@
+@{
+    var onFolderPage = Context.Request.Path.Equals("/Drive", StringComparison.OrdinalIgnoreCase) && !Context.Request.Query.ContainsKey("q");
+}
+@if (onFolderPage)
+{
+    <button type="button" class="mat-btn mat-btn--primary mat-btn--icon" data-dialog-open="drive-upload" aria-label="Hochladen" data-tip="Hochladen">@Ui.Icon("upload")</button>
+}
+else
+{
+    <a class="mat-btn mat-btn--primary mat-btn--icon" href="/Drive?upload=1" aria-label="Hochladen" data-tip="Hochladen">@Ui.Icon("upload")</a>
+}

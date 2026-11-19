@@ -9,6 +9,9 @@ public sealed record FilterField(string Name, string Label, IReadOnlyList<Filter
 
 public sealed record SortOption(string Value, string Label);
 
+/// <summary>A way to show a list (list or tiles): the link that shows it, its icon and its name.</summary>
+public sealed record ViewOption(string Url, string Icon, string Label, bool Active);
+
 /// <summary>
 /// Everything the toolbar partial (<c>_Toolbar</c>) needs: the search as a field in the toolbar, Filter and Sort as buttons that open a dialog
 /// at its right end (MatDesign LIST-02, LIST-03). All fields belong to ONE GET form, so every dialog sends the whole state. Several toolbars on one
@@ -38,6 +41,14 @@ public sealed class ToolbarModel
     public string DefaultSort { get; init; } = string.Empty;
 
     public bool DefaultDescending { get; init; }
+
+    /// <summary>The names of the two orders in the sort dialog (a list by date: newest / oldest first; by name: A–Z / Z–A).</summary>
+    public string DescendingLabel { get; init; } = "Neueste zuerst";
+
+    public string AscendingLabel { get; init; } = "Älteste zuerst";
+
+    /// <summary>The ways to show the list (list, tiles), as a switch at the end of the toolbar; empty: none.</summary>
+    public IReadOnlyList<ViewOption> Views { get; init; } = [];
 
     public int Total { get; init; }
 
