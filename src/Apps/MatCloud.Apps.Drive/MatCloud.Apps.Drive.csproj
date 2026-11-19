@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Drive of MatCloud (ThixDrive): the files and folders of an account. Its tables (Drive, DriveNode, DriveVersion, DriveBlob, DriveStar,
+    DriveVisit, DriveUpload, the sequence DriveRevision), the bytes in the data volume (/data/drive/blobs, one file per content), the device API
+    (/api/v1/drive, MatCloud.Contract.Drive – also for ThixWrite, ThixCalc and ThixShow), what the pages fetch (/live/drive) and the pages (/Drive).
+  -->
+  <PropertyGroup>
+    <RootNamespace>MatCloud.Apps.Drive</RootNamespace>
+    <AssemblyName>MatCloud.Apps.Drive</AssemblyName>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <MatCloudWebUsings>true</MatCloudWebUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MatCloud.Core\MatCloud.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MatCloud.Tests" />
+  </ItemGroup>
+
+</Project>
