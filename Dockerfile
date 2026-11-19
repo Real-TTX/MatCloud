@@ -18,6 +18,7 @@ COPY ["src/MatCloud.Contract/MatCloud.Contract.csproj", "src/MatCloud.Contract/"
 COPY ["src/MatCloud.Core/MatCloud.Core.csproj", "src/MatCloud.Core/"]
 COPY ["src/Apps/MatCloud.Apps.Calendar/MatCloud.Apps.Calendar.csproj", "src/Apps/MatCloud.Apps.Calendar/"]
 COPY ["src/Apps/MatCloud.Apps.Clip/MatCloud.Apps.Clip.csproj", "src/Apps/MatCloud.Apps.Clip/"]
+COPY ["src/Apps/MatCloud.Apps.Drive/MatCloud.Apps.Drive.csproj", "src/Apps/MatCloud.Apps.Drive/"]
 COPY ["src/Apps/MatCloud.Apps.Note/MatCloud.Apps.Note.csproj", "src/Apps/MatCloud.Apps.Note/"]
 COPY ["src/MatCloud/MatCloud.csproj", "src/MatCloud/"]
 RUN dotnet restore "src/MatCloud/MatCloud.csproj"
@@ -56,7 +57,8 @@ EXPOSE 4950
 
 COPY --from=build /app/publish .
 
-# One volume for what the app keeps in files: the keys that protect the sessions, the bindings of the platform. The database is the other container.
+# One volume for what the app keeps in files: the keys that protect the sessions, the bindings of the platform, the files of ThixDrive (/data/drive).
+# The database is the other container.
 RUN mkdir -p /data/keys && chown -R $APP_UID:$APP_UID /data
 VOLUME /data
 USER $APP_UID
