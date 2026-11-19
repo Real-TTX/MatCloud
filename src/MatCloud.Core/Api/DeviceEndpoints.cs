@@ -62,8 +62,8 @@ public static class DeviceEndpoints
     }
 
     /// <summary>
-    /// The group for the device routes of a module: the protocol header, a valid device token, a device of exactly this app and the app switched on
-    /// (else 401 / 403 with a German message).
+    /// The group for the device routes of a module: the protocol header, a valid device token, a device of exactly this app – or of an app the module
+    /// lets in (<see cref="ICloudModule.GuestApps"/>) – and the app switched on (else 401 / 403 with a German message).
     /// </summary>
     public static RouteGroupBuilder ForApp(IEndpointRouteBuilder app, string appId)
         => Base(app).MapGroup(string.Empty).AddEndpointFilter(DeviceAsync).AddEndpointFilter((context, next) => RequireAppAsync(context, next, appId));
@@ -232,13 +232,28 @@ public static class DeviceEndpoints
         return await next(context);
     }
 
-    /// <summary>The routes of a module are for the devices of its app only.</summary>
+    /// <summary>
+    /// The routes of a module are for the devices of its app, and for the devices of the apps it lets in while the module's app is on (the filter of the
+    /// device checked the device's own app already).
+    /// </summary>
     private static async ValueTask<object?> RequireAppAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next, string appId)
     {
-        var device = (DeviceIdentity)context.HttpContext.Items[DeviceItem]!;
-        return device.App == appId
+        var http = context.HttpContext;
+        var device = (DeviceIdentity)http.Items[DeviceItem]!;
+        if (device.App == appId)
+        {
+            return await next(context);
+        }
+
+        if (!CloudModules.IsGuest(appId, device.App))
+        {
+            return Error(StatusCodes.Status403Forbidden, $"Diese Daten gehören zu {CloudApps.NameOf(appId)}; dieses Gerät ist für {CloudApps.NameOf(device.App)} angemeldet.");
+        }
+
+        var db = http.RequestServices.GetRequiredService<AppDbContext>();
+        return await AppService.IsEnabledAsync(db, appId, http.RequestAborted)
             ? await next(context)
-            : Error(StatusCodes.Status403Forbidden, $"Diese Daten gehören zu {CloudApps.NameOf(appId)}; dieses Gerät ist für {CloudApps.NameOf(device.App)} angemeldet.");
+            : Error(StatusCodes.Status403Forbidden, AppService.SwitchedOffText(appId));
     }
 
     /// <summary>An app with a module of its own has no data in the general sync.</summary>

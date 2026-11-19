@@ -12,8 +12,12 @@ public sealed record Actor(long UserId, bool IsAdmin, long? DeviceId = null, str
 
     public const string WebSource = "Web";
 
-    /// <summary>A device of another app than <paramref name="app"/> may not touch its data (the browser of the account may).</summary>
-    public bool MayUse(string app) => DeviceId is null || App == app;
+    /// <summary>
+    /// A device of another app than <paramref name="app"/> may not touch its data (the browser of the account may) – unless the module of
+    /// <paramref name="app"/> grants it to the device's app (<see cref="Modules.ICloudModule.GuestApps"/>: ThixWrite in the Drive). Whether the app is
+    /// switched on is a question of its own (<see cref="AppService.IsEnabledAsync"/>).
+    /// </summary>
+    public bool MayUse(string app) => DeviceId is null || App == app || Modules.CloudModules.IsGuest(app, App);
 }
 
 /// <summary>The answer of a change in the business layer: what came out of it, or what is wrong (already worded for the person, in German).</summary>

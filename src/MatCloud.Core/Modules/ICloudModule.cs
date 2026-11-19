@@ -46,6 +46,14 @@ public interface ICloudModule
     /// </summary>
     bool UsesGeneralSync => false;
 
+    /// <summary>
+    /// The grant of the module to other apps: the apps (ids of the contract) whose devices may call its device API too and reach its data of THEIR
+    /// account (the Drive lets ThixWrite, ThixCalc and ThixShow open and save documents). Empty (the default): only a device of <see cref="AppId"/>.
+    /// The grant follows the switch of the module: while its app is off, the guests get 403 as well. The business layer checks it with
+    /// <see cref="Business.Actor.MayUse"/>, the routes with <see cref="Api.DeviceEndpoints.ForApp"/>.
+    /// </summary>
+    IReadOnlyList<string> GuestApps => [];
+
     /// <summary>Its services (most modules need none: the business layer is static).</summary>
     void AddServices(IServiceCollection services);
 
@@ -98,4 +106,8 @@ public static class CloudModules
 
     /// <summary>True when the app's devices use the general sync: no module, or a module that is a web client of it (ThixNote).</summary>
     public static bool UsesGeneralSync(string? appId) => Find(appId) is not { UsesGeneralSync: false };
+
+    /// <summary>True when the module of <paramref name="appId"/> lets the devices of <paramref name="guestApp"/> in (<see cref="ICloudModule.GuestApps"/>).</summary>
+    public static bool IsGuest(string appId, string? guestApp)
+        => guestApp is not null && Find(appId) is { } module && module.GuestApps.Contains(guestApp, StringComparer.Ordinal);
 }

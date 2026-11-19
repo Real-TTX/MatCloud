@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    ThixDrive app icon, full detail (36 px and larger), drawn like the icons of ThixWrite, ThixCalc and ThixShow: an open folder with a written page
+    standing in it, on a tile in ThixDrive's teal (#0F766E). Geometry on a 256 grid. Made in MatCloud (the Drive is a module of MatCloud).
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#2DB3A3"/>
+      <stop offset="1" stop-color="#0B6A62"/>
+    </linearGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E3F4F1"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)"/>
+  <!-- the back of the folder with its tab -->
+  <path d="M60 76a14 14 0 0 1 14-14h36l16 16h56a14 14 0 0 1 14 14v96H60z" fill="#A8DDD5"/>
+  <!-- the page in the folder -->
+  <path d="M86 66h70l18 18v86H86z" fill="#FFFFFF"/>
+  <g stroke="#0F766E" stroke-width="10" stroke-linecap="round">
+    <line x1="102" y1="96" x2="156" y2="96"/>
+    <line x1="102" y1="120" x2="156" y2="120"/>
+  </g>
+  <!-- the front of the folder -->
+  <path d="M52 124a12 12 0 0 1 12-12h128a12 12 0 0 1 12 12l-8 66a14 14 0 0 1-14 12H74a14 14 0 0 1-14-12z" fill="url(#front)"/>
+  <rect x="104" y="146" width="48" height="10" rx="5" fill="#0F766E"/>
+</svg>

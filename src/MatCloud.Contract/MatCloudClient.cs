@@ -21,9 +21,10 @@ public sealed class CloudException(HttpStatusCode statusCode, string message, st
 /// <summary>
 /// The HTTP calls of the protocol (<see cref="CloudContract"/>, <see cref="SyncContract"/>): the sign-in (password or browser), the account and
 /// the general sync. One instance per server and token. An app with a module of its own (ThixClip) sends its own routes through
-/// <see cref="SendAsync{T}"/>, <see cref="PutBytesAsync"/> and <see cref="GetBytesAsync"/>.
+/// <see cref="SendAsync{T}"/>, <see cref="PutBytesAsync"/> and <see cref="GetBytesAsync"/>. The calls of the Drive (also for ThixWrite, ThixCalc and
+/// ThixShow) are in Drive/MatCloudClient.Drive.cs.
 /// </summary>
-public sealed class MatCloudClient : IDisposable
+public sealed partial class MatCloudClient : IDisposable
 {
     public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan TransferTimeout = TimeSpan.FromMinutes(5);
