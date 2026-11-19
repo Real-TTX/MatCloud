@@ -4,7 +4,7 @@ Guidance for working in this repository. Keep it in sync with the code: update i
 
 ## What MatCloud is
 
-**The cloud of the Thix apps** (the desktop apps for Windows and macOS: ThixClip, ThixNote, ThixCalendar, ThixTunnel, ThixLauncher, ThixFred). Every app signs its
+**The cloud of the Thix apps** (the desktop apps for Windows and macOS: ThixClip, ThixNote, ThixCalendar, ThixWrite, ThixCalc, ThixShow, ThixTunnel, ThixLauncher, ThixFred). Every app signs its
 devices in here and keeps its data the same on every PC and Mac of an account. Two kinds of apps:
 
 - **Apps with a module** (`src/Apps/*`, an `ICloudModule`): their own tables, their own API for their devices and their own pages in the browser.
@@ -19,6 +19,11 @@ devices in here and keeps its data the same on every PC and Mac of an account. T
   are changed at the provider first. Pages `/Calendar` (MatUI's schedule: day, week, month, agenda; the events as JSON from `?handler=Events`, in the colours of their
   calendars; a click into the grid starts an event there; the calendars are switched beside it), `/Calendar/Events`, `/Calendar/Event`, `/Calendar/Accounts` (sync mode, Microsoft
   with a code, Google through the web client the administrator enters, ICS), `/Calendar/Settings`.
+- The fourth is **ThixDrive** (`MatCloud.Apps.Drive`, app `drive`): the files of an account (ported from MatDrive, without MatOffice): a personal drive per
+  account, folders and files with a materialized path, versions, trash, stars, recent, quota; the bytes once per content in `/data/drive/blobs`; uploads
+  in pieces; every new version only with `If-Match`. Its device API `/api/v1/drive` is **granted** to ThixWrite, ThixCalc and ThixShow
+  (`ICloudModule.GuestApps` = `DriveContract.GuestApps`): their devices reach the Drive of their account; nothing else is loosened. Pages `/Drive`
+  (folder or search, list or tiles), `/Drive/Recent`, `/Drive/Starred`, `/Drive/Trash`, `/Drive/Item` (Allgemein), `/Drive/Item/Versions`.
 - **Apps in the general sync** (everything else, ThixNote first): no code here. They keep items of their own choosing (collection + key + data) and
   MatCloud keeps them in step (last writer wins, tombstones, revisions, long poll).
 
@@ -64,10 +69,11 @@ plain JavaScript, Docker-first.
 
 ```
 src/MatCloud.Contract       THE contract with the apps (copied into them, no dependencies): CloudContract (protocol 1, header X-MatCloud-Protocol, routes of
-                            the sign-in and the account, JSON options), CloudApps (the known app ids: clip, note, calendar, tunnel, launcher, fred), Devices.cs
-                            (password sign-in, sign-in in the browser: DeviceLinkRequest/Start/PollResponse, AccountInfo), Sync.cs (the general sync:
-                            SyncContract, SyncItemDto, SyncChangeSet, SyncPushRequest/Result), Clip/ (ClipContract, ClipDto ..., ClearRange), MatCloudClient
-                            (HttpClient of all of it, CloudException)
+                            the sign-in and the account, JSON options), CloudApps (the known app ids: clip, note, calendar, drive, write, calc, show, tunnel,
+                            launcher, fred), Devices.cs (password sign-in, sign-in in the browser: DeviceLinkRequest/Start/PollResponse, AccountInfo), Sync.cs
+                            (the general sync: SyncContract, SyncItemDto, SyncChangeSet, SyncPushRequest/Result), Clip/ (ClipContract, ClipDto ..., ClearRange),
+                            Drive/ (DriveContract: routes, limits, GuestApps; DriveItem, DriveListing, DriveConflict ...; MatCloudClient.Drive.cs: the calls
+                            of the office apps, DriveConflictException), MatCloudClient (partial: HttpClient of all of it, CloudException)
 src/MatCloud.Core           (Razor class library) what everything stands on:
   Data/                     Entities (User, UserSession, Device (per app), DeviceLink, AppSetting, SystemSetting, SyncItem), AppDbContext (audit columns,
                             soft delete, the model of every module), AppDatabase (Npgsql, migrations in the host)
@@ -107,6 +113,16 @@ src/Apps/MatCloud.Apps.Calendar (Razor class library) the module ThixCalendar: C
                             Events, Event, Accounts, Connect, Google, Settings); wwwroot/js calendar-schedule.js (loads, colours and links the
                             schedule), calendar-live.js (with data-live-event it only tells the page), calendar-colors.js (the colours: no style
                             attributes under the CSP), calendar-connect.js, calendar-accounts.js
+src/Apps/MatCloud.Apps.Drive (Razor class library) the module ThixDrive: DriveModule (GuestApps write/calc/show, DriveStore + DriveWorker as services);
+                            Data/DriveModel (DriveSpace, DriveNode, DriveNodeVersion, DriveBlob, DriveStar, DriveVisit, DriveUpload, sequence DriveRevision);
+                            Business/ DriveAccess (who reaches the Drive: RequireAsync first in every function; DriveOutcome/DriveFailure), DriveItems (lists,
+                            the tree: folder, rename, move, copy, trash, restore, delete, star; everything under Revisions.ChangeAsync), DriveFiles (new
+                            file, new version with If-Match, open, versions, uploads in pieces, quota), DriveStore (/data/drive: blobs by SHA-256, temp),
+                            DriveNames (the rules of names), DriveTypes (category, icon, MIME; DriveOpeners: the seam for "Öffnen mit" in the browser,
+                            nothing registered yet), DriveLimits (MATCLOUD_DRIVE_QUOTA_GB, MATCLOUD_DRIVE_MAX_FILE_MB), DriveHousekeeping (+ DriveWorker:
+                            blobs nobody names, temp files); Api/DriveEndpoints (/api/v1/drive, /live/drive: revision, download, uploads); Pages/Drive
+                            (Index, Recent, Starred, Trash, Item, Versions; DrivePages.cs: DrivePageModel, DriveListPageModel, DriveUi), Pages/Shared
+                            (_DriveMenu, _DriveList, _DriveActions, _DriveTopActions); wwwroot/js/drive.js (selection, uploads, live)
 src/MatCloud                the host: Program (composition: modules, MatPlatform, MatIdentity, cookie, rate limit, body limit), Modules.cs (the list of
                             modules), Infrastructure (health check, migrations, design-time factory, setup redirect, forced password change, security
                             headers, housekeeping every hour, SeedAdminAsync: MATCLOUD_ADMIN_PASSWORD makes the first administrator), Platform/ (MatCloudPlatform: the MatApiDefinition, state, configure, actions, health;
@@ -134,14 +150,18 @@ docs/                       ARCHITECTURE.md (platform, modules, sync), CONTRACT.
   deleting wins, the same content is merged. Never log clipboard contents, note contents, passwords or tokens.
 - **Modules:** everything of an app lives in its project under `src/Apps` (tables, business, routes, pages, scripts, its menu partial); the platform
   knows no module by name (only `Modules.cs` lists them). Device routes go through `DeviceEndpoints.ForApp`. See docs/MODULES.md.
+  **One device token = one app**: the only way another app reaches a module's data is the module's explicit grant (`GuestApps`, today only the Drive
+  for write/calc/show), checked in `ForApp` and in the business layer (`Actor.MayUse`); never loosen the rule globally.
 - **The contract** (`src/MatCloud.Contract`) changes only backwards-compatibly (new optional fields) or raises `CloudContract.ProtocolVersion`; after
   a change the apps copy it again. A new app id goes into `CloudApps` first.
 - **UI rules (MatUi):** toolbar above lists, actions below, left-aligned, positive to negative, delete with a gap; tabs for areas of one item; colours
-  only from the tokens (`app.css` sets only the accents: MatCloud `#0369a1`, ThixClip `#2f6fed`, ThixNote `#c53d30`); icons of the sprite (MatCloud's
+  only from the tokens (`app.css` sets only the accents: MatCloud `#0369a1`, ThixClip `#2f6fed`, ThixNote `#c53d30`, ThixDrive `#0f766e`, ThixWrite
+  `#185abd`, ThixCalc `#107c41`, ThixShow `#c43e1c`); icons of the sprite (MatCloud's
   own, for example the marks of the editor, in `wwwroot/img/app-icons.svg`); one `h1`; 390 px without sideways scrolling; texts German.
 - **Every app looks like itself:** the pages of a module (`/Clip`, `/Note`) wear the brand of their app (`AppBrands`): logo and word mark above the
   menu with "MatCloud" below it, `<html data-app="thixnote">` (the accent), the tab title "Seite · ThixNote", favicon and manifest. The logos are
-  copies from the apps (`wwwroot/img/apps`, from `ThixClip/branding`, `ThixNote/assets`, …); a new app gets its entry in `AppBrands` and its logo there.
+  copies from the apps (`wwwroot/img/apps`, from `ThixClip/branding`, `ThixNote/assets`, `ThixOffice/branding/thix{write,calc,show}` …); a new app
+  gets its entry in `AppBrands` and its logo there. ThixDrive has no repository of its own: its logo (`thixdrive.svg`, `-small.svg`, the PNGs) is drawn here.
 - Edit text files with the editor tools (Windows PowerShell 5.1 `Get-Content`/`Set-Content` double-encode umlauts).
 
 ## Versioning, branches, CI

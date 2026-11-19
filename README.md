@@ -4,10 +4,11 @@
 
 # MatCloud
 
-**The cloud of the Thix apps – your clipboard, notes, calendars and settings the same on every PC and Mac.**
+**The cloud of the Thix apps – your clipboard, notes, calendars, files and settings the same on every PC and Mac.**
 
 Self-hosted, one container plus PostgreSQL. Every Thix app signs its devices in here; apps with a module get their own pages in the browser
-(ThixClip: the clipboard history, ThixNote: the notes, ThixCalendar: the calendars), every other app keeps its data in the general sync. An app of the Mat family: sign-in through MatIdentity,
+(ThixClip: the clipboard history, ThixNote: the notes, ThixCalendar: the calendars, ThixDrive: the files – where ThixWrite, ThixCalc and ThixShow open
+and save their documents), every other app keeps its data in the general sync. An app of the Mat family: sign-in through MatIdentity,
 installed and connected by Mattiverse – or on its own with `docker compose up`.
 
 </div>
@@ -25,6 +26,7 @@ installed and connected by Mattiverse – or on its own with `docker compose up`
 | **ThixClip** (module) | The clipboard history of all your computers: texts, links and pictures with their recognised text, searchable, live, favourites and pinned entries, "Verlauf löschen" like a browser, retention per account. |
 | **ThixNote** (module) | The notes of all your computers in the browser, as cards: folders, search, Markdown drawn as a page, write, rename, move, delete – every device of ThixNote sees it at once. A real Markdown editor: toolbar and keys (Strg+B, Strg+K …), lists that continue themselves, a preview beside the text, Strg+S, a warning before unsaved text is left. Protected notes are opened and saved only in your browser with their password; the server never sees their text. |
 | **ThixCalendar** (module) | The calendars of all your computers in the browser: week and month, the events as a list, new events and changes (they reach ThixCalendar at once). Accounts of Microsoft 365 / Outlook.com, Google and ICS addresses can run **over MatCloud**: MatCloud keeps the sign-in (protected) and syncs on the server, also while no computer runs – the computers then need no sign-in of their own. Per account and as a default for new ones; connect Microsoft in the browser with a code, Google with the web client the administrator enters, or hand the sign-in over from ThixCalendar. |
+| **ThixDrive** (module) | Your files in the cloud: folders, upload (also by drag and drop, large files in pieces with progress), download, rename, move, copy, stars, recent, a trash for 30 days, every saved state as a version (restore or download one), a quota per account. **ThixWrite, ThixCalc and ThixShow** open and save their documents (.docx, .xlsx, .pptx, .odt …) here directly: a save on a state somebody else changed meanwhile is refused, the app offers "Überschreiben" or "Als Kopie speichern". The same content is stored once. |
 | **Every app looks like itself** | `/Clip` is ThixClip, `/Note` is ThixNote: their logo and name at the top of the menu, their colour, their favicon – and each can be installed as an app of its own. |
 | **General sync** | ThixNote (notes), ThixCalendar, ThixTunnel, ThixLauncher, ThixFred (the launcher: settings, themes, web searches, scripts, store plugins): their data the same everywhere – last change wins, deletions travel, nothing is missed (revisions + long poll). The cloud never reads it: protected notes stay encrypted. |
 | **Apps und Daten** | What each app keeps for you, its devices, and "Daten in der Cloud löschen". |
@@ -37,7 +39,8 @@ installed and connected by Mattiverse – or on its own with `docker compose up`
 | ![The clipboard history of ThixClip](docs/images/clipboard.png) | ![Connecting a device: compare the code, confirm](docs/images/connect.png) |
 | ![The notes of ThixNote as cards](docs/images/notes-list.png) | ![The Markdown editor: toolbar, the text and its preview side by side](docs/images/note-editor.png) |
 | ![A note of ThixNote, its Markdown drawn as a page](docs/images/notes.png) | ![Administration: the apps](docs/images/admin-apps.png) |
-| ![On a phone, dark](docs/images/phone-dark.png) | |
+| ![On a phone, dark](docs/images/phone-dark.png) | ![ThixDrive on a phone, dark](docs/images/drive-phone-dark.png) |
+| ![ThixDrive: the files with the toolbar above and the actions below](docs/images/drive.png) | ![ThixDrive: the versions of a document, saved by ThixWrite](docs/images/drive-versions.png) |
 
 ## Run it
 
@@ -69,8 +72,11 @@ internet put a TLS proxy in front (Matcad, Caddy, nginx, Traefik; `X-Forwarded-*
 | `MATCLOUD_CALENDAR_GOOGLE_SECRET` | the client secret of ThixCalendar's Google desktop client (the image of GitHub has it built in): MatCloud keeps the Google sign-ins ThixCalendar hands over |
 | `MATCLOUD_CALENDAR_GOOGLE_WEB_CLIENT_ID`, `MATCLOUD_CALENDAR_GOOGLE_WEB_CLIENT_SECRET` | a Google web client of this MatCloud (redirect `<address>/Calendar/Google`): Google accounts can be connected in the browser; otherwise the administrator enters it under Kalender › Einstellungen |
 | `MATCLOUD_CALENDAR_WORKER` | `off` stops the calendar sync on the server (tests) |
+| `MATCLOUD_DRIVE_QUOTA_GB` | the space of an account in ThixDrive (default 10; 0 = no limit) |
+| `MATCLOUD_DRIVE_MAX_FILE_MB` | the largest file in ThixDrive (default 2048) |
 
-Volumes: `web-data` (`/data`: the keys that protect the sessions, the bindings of the platform) and `db-data` (the database).
+Volumes: `web-data` (`/data`: the keys that protect the sessions, the bindings of the platform, the files of ThixDrive in `/data/drive` – back it up)
+and `db-data` (the database).
 
 ## For developers
 

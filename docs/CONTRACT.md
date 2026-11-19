@@ -18,6 +18,10 @@ version, then the SHA-256 of each copied file with LF line ends). The app's test
 - A **device** is one app on one computer. It signs in for exactly one app (`app`: an id of `CloudApps`) and its token reads and writes only the data of
   that app of its account. `401`: the token is unknown or the device was removed (the app signs out). `403`: the app is switched off by an
   administrator, or the route belongs to another app.
+- **The one exception is a grant of a module, explicit and on the server** (`ICloudModule.GuestApps`): the Drive lets the devices of ThixWrite,
+  ThixCalc and ThixShow (`DriveContract.GuestApps`) call its routes and reach the Drive of THEIR account. Nothing else is loosened: a device of
+  ThixClip or ThixNote gets 403 at the Drive, a device of the Drive 403 at the routes of ThixClip. While the Drive is switched off, the office apps
+  get 403 there too (their own sign-in, account and general sync keep working).
 - The user agent names the app and its version: `ThixNote/1.1.42 (windows)`; the cloud shows the version with the device.
 
 ## Sign-in
@@ -65,6 +69,58 @@ change on the device), `isDeleted`; set by the cloud: `source` (the device), `re
   applied (`applied: false`, `current` = the item as it is).
 
 ## ThixClip (the module `clip`)
+
+## ThixDrive (the module `drive`, contract 1.4.0) – also for ThixWrite, ThixCalc, ThixShow
+
+The files and folders of an account (`Drive/DriveContract.cs`, the calls in `Drive/MatCloudClient.Drive.cs`). Devices of `drive`, `write`, `calc` and
+`show` may call these routes (see the rules above); every item has a stable `id` (a number that never changes, also when it is renamed or moved),
+a file has versions and an `eTag` (`"<version id>"`) that names the current one.
+
+| Route | What |
+|---|---|
+| `GET /api/v1/drive/items?parentId=&sort=&descending=&offset=&limit=` | `DriveListing { folder, ancestors, items, total, offset, limit }`: a folder (no `parentId`: the top), folders first, `sort` = `Name` \| `Modified` \| `Size` \| `Type`, `limit` ≤ 500 |
+| `GET /api/v1/drive/items/{id}` | `DriveItem` with `ancestors` (the folders above it) |
+| `GET /api/v1/drive/search?q=&offset=&limit=`, `GET …/recent?limit=`, `GET …/starred`, `GET …/trash` | `DriveItemPage { items, total, offset, limit }`; recent = what the account opened or saved last, in any app |
+| `GET /api/v1/drive/quota` | `DriveQuota { usedBytes, quotaBytes?, trashBytes, olderVersionsBytes, maxFileBytes, maxSimpleUploadBytes, chunkBytes }` |
+| `POST /api/v1/drive/folders` | `DriveFolderRequest { parentId?, name }` → 201 `DriveItem` |
+| `POST …/items/{id}/rename` · `/move` · `/copy` | `{ name }` · `{ parentId? }` · `{ parentId?, name? }` → `DriveItem` (copy: 201; the bytes are shared, not copied) |
+| `POST …/items/{id}/trash` · `/restore`, `DELETE …/items/{id}` | into the trash (30 days) · back (into its folder, else the top; a taken name gets a number) · for good (only from the trash, else 409) |
+| `POST` / `DELETE …/items/{id}/star` | star / unstar (204) |
+| `GET …/items/{id}/content` | the bytes of the current version, streamed; `ETag`, `Last-Modified`, `Range` (206/416) and `If-None-Match` (304) |
+| `PUT …/items/{id}/content` | a new version, the body is the file (≤ 64 MB); **`If-Match` is required**: the ETag the app opened, or `*` |
+| `POST /api/v1/drive/files?parentId=&name=&onConflict=Fail\|Rename` | a new file, the body is the file (≤ 64 MB) → 201 `DriveItem` |
+| `POST /api/v1/drive/uploads` | `DriveUploadRequest { size, parentId?, name?, onConflict, itemId?, ifMatch? }` → 201 `DriveUploadState { id, size, received, chunkBytes, expiresAt }`: larger files in pieces; every check runs here first |
+| `PUT …/uploads/{id}/chunk?offset=`, `GET …/uploads/{id}`, `POST …/uploads/{id}/finish`, `DELETE …/uploads/{id}` | a piece (≤ 16 MB, from `received` on; a piece again is fine) · how much arrived (resume) · done → `DriveItem` · give up |
+| `GET …/items/{id}/versions`, `GET …/versions/{v}/content`, `POST …/versions/{v}/restore` | `DriveVersionList` (`number`, `size`, `eTag`, `sha256`, `createdAt`, `source` = the device, `app`) · the bytes of one · it becomes current again as a new version |
+
+Status codes: 400 a bad value (`field`: `name`, `parentId`, `offset` …), 403 another app or the Drive switched off, 404 not found (also an item of
+another account: nothing can be probed), **409** the name is taken (case-insensitive) or a folder would go into itself, **412** `If-Match` is not the
+current version, 413 too large (`MATCLOUD_DRIVE_MAX_FILE_MB`, default 2 GB; a single request 64 MB), 428 `If-Match` is missing, **507** the quota of
+the account is full. 409 and 412 carry a `DriveConflict { message, field, current }` (an `ApiError` plus the item as it is now).
+
+Names are refused, never changed: no `/ \ : * ? " < > |`, no control characters, not `.`/`..`, no space or dot at the end, none of Windows' reserved
+names (`CON`, `NUL`, `COM1` …), at most 255 characters. Items are reached by id, never by a path.
+
+**Opening and saving a document** (ThixWrite, ThixCalc, ThixShow with `MatCloudClient`):
+
+```csharp
+var recent = await client.GetDriveRecentAsync(ct);                                   // "Zuletzt verwendet"
+var listing = await client.ListDriveFolderAsync(folderId, ct);                      // browse; null = the top
+var etag = await client.DownloadDriveFileAsync(item.Id, fileStream, ct);             // open: keep the ETag
+try
+{
+    item = await client.SaveDriveFileAsync(item.Id, document, etag, ct);           // save: a new version, the new item.ETag
+}
+catch (DriveConflictException conflict) when (conflict.IsChangedMeanwhile)         // 412: somebody saved in between
+{
+    // "Überschreiben":         await client.SaveDriveFileAsync(item.Id, document, conflict.Current!.ETag!, ct);
+    // "Als Kopie speichern":   await client.UploadDriveFileAsync(item.ParentId, item.Name, document, DriveNameConflict.Rename, ct);
+}
+var created = await client.UploadDriveFileAsync(folderId, "Angebot.docx", document, DriveNameConflict.Fail, ct);   // save as (409: name taken)
+```
+
+`UploadDriveFileAsync` and `SaveDriveFileAsync` send up to 64 MB in one request and larger files in pieces of 8 MB (a broken piece is sent again after
+asking how much arrived); a stream that cannot seek is spooled to a temporary file first. `DownloadDriveFileAsync` streams into the given stream.
 
 ## ThixCalendar (the module `calendar`, contract 1.3.0)
 
