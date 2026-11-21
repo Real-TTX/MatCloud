@@ -1,0 +1,71 @@
+@page "/Contacts/Group"
+@model MatCloud.Apps.Contacts.Pages.Contacts.GroupModel
+@using MatCloud.Apps.Contacts.Pages.Contacts
+@{
+    ViewData["Title"] = Model.Group.Name;
+    ViewData["PageSub"] = Model.Members.Count == 1 ? "1 Mitglied" : $"{Model.Members.Count} Mitglieder";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kontakte", "/Contacts"), ("Kontaktgruppen", "/Contacts/Groups"), (Model.Group.Name, null) };
+    ViewData["Width"] = "narrow";
+    var mails = string.Join(",", Model.Members.Select(m => m.Data.Emails.FirstOrDefault()?.Value).Where(m => !string.IsNullOrEmpty(m)));
+}
+
+@section TopActions {
+    <partial name="_ContactsTopActions" />
+}
+
+<form class="mat-form" method="post" asp-route-key="@Model.Group.Key" novalidate>
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__body">
+            <mc-field name="Name" label="Name" required value="@Model.Name" maxlength="100" msg-required="Bitte einen Namen eingeben." full />
+        </div>
+    </div>
+    <mc-buttons save="Speichern" back="/Contacts/Groups" delete-handler="Delete" delete-confirm="Diese Gruppe löschen? Ihre Kontakte bleiben." />
+</form>
+
+<h2 class="mc-section-title">Mitglieder</h2>
+<div class="mat-list">
+    @if (Model.Members.Count == 0)
+    {
+        <partial name="_Empty" model="@(new EmptyStateModel("users", "Noch keine Mitglieder", "Füge unten Kontakte hinzu – oder wähle sie in der Liste und „Zur Gruppe …“.", false))" />
+    }
+    else
+    {
+        <ul class="mc-member-list" aria-label="Mitglieder">
+            @foreach (var c in Model.Members)
+            {
+                <li class="mc-member" data-item="@c.Key">
+                    <label class="mc-member__check"><input type="checkbox" name="keys" value="@c.Key" form="group-selection" data-select-row aria-label="„@c.Name“ auswählen" /></label>
+                    @ContactsUi.Avatar(c.Data, "sm")
+                    <a href="/Contacts/Contact?key=@c.Key" class="mc-member__name">@c.Name</a>
+                    <span class="mc-member__mail">@(c.Data.Emails.FirstOrDefault()?.Value)</span>
+                </li>
+            }
+        </ul>
+    }
+
+    <form id="group-selection" method="post" asp-page-handler="Remove" asp-route-key="@Model.Group.Key" hidden></form>
+
+    <form method="post" asp-page-handler="Add" asp-route-key="@Model.Group.Key" class="mat-form mc-member-add">
+        <div class="mat-field">
+            <label class="mat-label" for="group-add">Kontakte hinzufügen</label>
+            <div class="mat-picker" data-picker="select" data-multiple data-search data-source-url="/live/contacts/suggest" data-placeholder="Namen suchen">
+                <input class="mat-picker__input" id="group-add" name="add" value="" />
+                <div class="mat-picker__options" hidden></div>
+            </div>
+        </div>
+        <div class="mat-actions">
+            <button type="submit" class="mat-btn mat-btn--primary">@Ui.Icon("plus")<span>Hinzufügen</span></button>
+            @if (mails.Length > 0)
+            {
+                <a class="mat-btn mat-btn--secondary" href="mailto:@mails">@Ui.Icon("mail")<span>E-Mail an alle</span></a>
+            }
+            <span class="mat-btn-row__spacer"></span>
+            <button type="submit" form="group-selection" class="mat-btn mat-btn--danger" data-needs="some" disabled>@Ui.Icon("minus")<span>Aus der Gruppe nehmen</span></button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Contacts/js/contacts.js" asp-append-version="true"></script>
+}

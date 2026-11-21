@@ -39,15 +39,17 @@ public static class DeviceEndpoints
 
         // The general sync: only the apps without a module of their own (a module has its own routes).
         var sync = device.MapGroup(string.Empty).AddEndpointFilter(GeneralSyncAsync);
+        // ?app= names another app's data (a grant of its module: ThixMail in the contacts and the calendar); the business layer checks the grant.
         sync.MapGet(SyncContract.Changes, async (HttpContext http, AppDbContext db, long? since, int? limit) =>
         {
             var actor = ActorOf(http);
-            return Json(await SyncService.ChangesAsync(db, actor, actor.App!, since ?? 0, limit ?? SyncService.DefaultLimit, http.RequestAborted));
+            return Json(await SyncService.ChangesAsync(db, actor, TargetApp(http), since ?? 0, limit ?? SyncService.DefaultLimit, http.RequestAborted));
         });
         sync.MapGet(SyncContract.Wait, async (HttpContext http, AppDbContext db, long? since, int? timeout) =>
         {
             var actor = ActorOf(http);
-            return await WaitAsync(http, () => SyncService.WaitAsync(db, actor, actor.App!, since ?? 0, WaitTime(timeout), http.RequestAborted));
+            var app = TargetApp(http);
+            return await WaitAsync(http, () => SyncService.WaitAsync(db, actor, app, since ?? 0, WaitTime(timeout), http.RequestAborted));
         });
         sync.MapPost(SyncContract.Push, async (HttpContext http, AppDbContext db, SyncPushRequest? request) =>
         {
@@ -57,8 +59,15 @@ public static class DeviceEndpoints
             }
 
             var actor = ActorOf(http);
-            return Json(await SyncService.PushAsync(db, actor, actor.App!, request!, http.RequestAborted));
+            return Json(await SyncService.PushAsync(db, actor, TargetApp(http), request!, http.RequestAborted));
         });
+    }
+
+    /// <summary>The app whose general sync a request reaches: <c>?app=</c> (<see cref="SyncContract.AppParameter"/>), else the device's own.</summary>
+    private static string TargetApp(HttpContext http)
+    {
+        var asked = http.Request.Query[SyncContract.AppParameter].ToString();
+        return asked.Length == 0 ? ActorOf(http).App! : asked;
     }
 
     /// <summary>
@@ -245,7 +254,8 @@ public static class DeviceEndpoints
             return await next(context);
         }
 
-        if (!CloudModules.IsGuest(appId, device.App))
+        var reading = HttpMethods.IsGet(http.Request.Method) || HttpMethods.IsHead(http.Request.Method);
+        if (!(reading ? CloudModules.IsReadingGuest(appId, device.App) : CloudModules.IsGuest(appId, device.App)))
         {
             return Error(StatusCodes.Status403Forbidden, $"Diese Daten gehören zu {CloudApps.NameOf(appId)}; dieses Gerät ist für {CloudApps.NameOf(device.App)} angemeldet.");
         }
@@ -256,13 +266,35 @@ public static class DeviceEndpoints
             : Error(StatusCodes.Status403Forbidden, AppService.SwitchedOffText(appId));
     }
 
-    /// <summary>An app with a module of its own has no data in the general sync.</summary>
+    /// <summary>
+    /// An app with a module of its own has no data in the general sync. A request for another app's data (<c>?app=</c>) needs that app known, granted to
+    /// the device's app (read: <see cref="ICloudModule.ReadingGuestApps"/> too; push: <see cref="ICloudModule.GuestApps"/> only) and switched on.
+    /// </summary>
     private static async ValueTask<object?> GeneralSyncAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
-        var device = (DeviceIdentity)context.HttpContext.Items[DeviceItem]!;
-        return !CloudModules.UsesGeneralSync(device.App)
-            ? Error(StatusCodes.Status403Forbidden, $"{CloudApps.NameOf(device.App)} hat in der MatCloud eine eigene Schnittstelle.")
-            : await next(context);
+        var http = context.HttpContext;
+        var device = (DeviceIdentity)http.Items[DeviceItem]!;
+        var app = TargetApp(http);
+        if (!CloudModules.UsesGeneralSync(app) || !CloudApps.IsKnown(app))
+        {
+            return Error(StatusCodes.Status403Forbidden, $"{CloudApps.NameOf(app)} hat in der MatCloud eine eigene Schnittstelle.");
+        }
+
+        if (app == device.App)
+        {
+            return await next(context);
+        }
+
+        var reading = HttpMethods.IsGet(http.Request.Method) || HttpMethods.IsHead(http.Request.Method);
+        if (!(reading ? CloudModules.IsReadingGuest(app, device.App) : CloudModules.IsGuest(app, device.App)))
+        {
+            return Error(StatusCodes.Status403Forbidden, $"Diese Daten gehören zu {CloudApps.NameOf(app)}; dieses Gerät ist für {CloudApps.NameOf(device.App)} angemeldet.");
+        }
+
+        var db = http.RequestServices.GetRequiredService<AppDbContext>();
+        return await AppService.IsEnabledAsync(db, app, http.RequestAborted)
+            ? await next(context)
+            : Error(StatusCodes.Status403Forbidden, AppService.SwitchedOffText(app));
     }
 
     /// <summary>The version of the app from its user agent ("ThixNote/1.1.42 (windows)").</summary>

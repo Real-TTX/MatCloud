@@ -7,6 +7,7 @@
   <Folder Name="/src/Apps/">
     <Project Path="src/Apps/MatCloud.Apps.Calendar/MatCloud.Apps.Calendar.csproj" />
     <Project Path="src/Apps/MatCloud.Apps.Clip/MatCloud.Apps.Clip.csproj" />
+    <Project Path="src/Apps/MatCloud.Apps.Contacts/MatCloud.Apps.Contacts.csproj" />
     <Project Path="src/Apps/MatCloud.Apps.Drive/MatCloud.Apps.Drive.csproj" />
     <Project Path="src/Apps/MatCloud.Apps.Note/MatCloud.Apps.Note.csproj" />
   </Folder>

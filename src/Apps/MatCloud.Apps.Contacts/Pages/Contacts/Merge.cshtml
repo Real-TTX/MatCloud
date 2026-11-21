@@ -1,0 +1,72 @@
+@page "/Contacts/Merge"
+@model MatCloud.Apps.Contacts.Pages.Contacts.MergeModel
+@using MatCloud.Apps.Contacts.Pages.Contacts
+@{
+    ViewData["Title"] = "Zusammenführen";
+    ViewData["PageSub"] = $"{Model.Contacts.Count} Kontakte werden einer. Wähle je Feld, welcher Wert bleibt.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kontakte", "/Contacts"), ("Dubletten", "/Contacts/Duplicates"), ("Zusammenführen", null) };
+}
+
+@section TopActions {
+    <partial name="_ContactsTopActions" />
+}
+
+<form class="mat-form" method="post" novalidate>
+    @foreach (var c in Model.Contacts)
+    {
+        <input type="hidden" name="keys" value="@c.Key" />
+    }
+
+    <mc-table caption="Felder der Kontakte">
+        <thead>
+            <tr>
+                <th scope="col">Feld</th>
+                @foreach (var c in Model.Contacts)
+                {
+                    <th scope="col">@ContactsUi.Avatar(c.Data, "sm") @c.Name</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <th scope="row">Behalten wird</th>
+                @for (var i = 0; i < Model.Contacts.Count; i++)
+                {
+                    <td data-label="@Model.Contacts[i].Name"><label class="mat-check"><input type="radio" name="keep" value="@Model.Contacts[i].Key" checked="@(i == 0)" /><span class="mat-check__text">Dieser (mit seinen Gruppen)</span></label></td>
+                }
+            </tr>
+            @foreach (var field in ContactDuplicates.Fields)
+            {
+                var values = Model.Contacts.Select(c => ContactDuplicates.ValueOf(c.Data, field.Id)).ToList();
+                if (values.All(v => v.Length == 0))
+                {
+                    continue;
+                }
+
+                var first = values.FindIndex(v => v.Length > 0);
+                <tr>
+                    <th scope="row">@field.Label</th>
+                    @for (var i = 0; i < Model.Contacts.Count; i++)
+                    {
+                        <td data-label="@Model.Contacts[i].Name">
+                            @if (values[i].Length > 0)
+                            {
+                                <label class="mat-check"><input type="radio" name="field-@field.Id" value="@Model.Contacts[i].Key" checked="@(i == first)" /><span class="mat-check__text">@(field.Id is "birthday" or "anniversary" ? ContactsUi.DateText(values[i]) : values[i])</span></label>
+                            }
+                            else
+                            {
+                                <span class="mat-muted">–</span>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+            <tr>
+                <th scope="row">Zusammengelegt</th>
+                <td colspan="@Model.Contacts.Count" data-label="Zusammengelegt">E-Mail-Adressen, Telefonnummern, Adressen, Webadressen, Kategorien und Notizen aller Kontakte (jeder Wert einmal).</td>
+            </tr>
+        </tbody>
+    </mc-table>
+
+    <mc-buttons save="Zusammenführen" save-icon="layers" back="/Contacts/Duplicates" />
+</form>

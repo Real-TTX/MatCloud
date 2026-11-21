@@ -1,0 +1,66 @@
+@page "/Contacts/Import"
+@model MatCloud.Apps.Contacts.Pages.Contacts.ImportModel
+@using MatCloud.Apps.Contacts.Pages.Contacts
+@{
+    ViewData["Title"] = Model.Table is null ? "Importieren" : "Spalten zuordnen";
+    ViewData["PageSub"] = Model.Table is null ? "Kontakte aus einer vCard- oder CSV-Datei (Outlook, Apple, Google, Excel)." : "Welche Spalte der CSV-Datei wird welches Feld?";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kontakte", "/Contacts"), ("Importieren", Model.Table is null ? null : "/Contacts/Import") };
+    ViewData["Width"] = "narrow";
+}
+
+@section TopActions {
+    <partial name="_ContactsTopActions" />
+}
+
+@if (Model.Table is null)
+{
+    <form class="mat-form" method="post" enctype="multipart/form-data" novalidate>
+        <partial name="_FormSummary" model="ViewData.ModelState" />
+        <div class="mat-card">
+            <div class="mat-card__body">
+                <mc-field name="Upload" kind="file" label="Datei" required accept=".vcf,.vcard,.csv,.txt,text/vcard,text/csv" max-size="15728640"
+                          hint="vCard (.vcf, auch mit vielen Kontakten und Bildern) oder CSV (.csv). Höchstens 15 MB." msg-required="Bitte eine Datei wählen." />
+                <mc-field name="SkipDuplicates" kind="switch" label="Dubletten überspringen" value="@Model.SkipDuplicates" />
+                <p class="mat-hint">Eine Dublette hat denselben Namen, eine gleiche E-Mail-Adresse oder Telefonnummer wie ein Kontakt, den du schon hast.</p>
+            </div>
+        </div>
+        <mc-buttons save="Importieren" save-icon="upload" back="/Contacts" />
+    </form>
+}
+else
+{
+    var table = Model.Table;
+    <form class="mat-form" method="post" asp-page-handler="Map" novalidate>
+        <input type="hidden" name="token" value="@Model.Token" />
+        <input type="hidden" name="SkipDuplicates" value="@(Model.SkipDuplicates ? "true" : "false")" />
+        <p class="mat-hint">@table.Rows.Count Zeilen. Vorgeschlagen ist, was die Spaltennamen sagen; Spalten ohne Feld werden nicht übernommen.</p>
+        <mc-table caption="Spalten der Datei">
+            <thead>
+                <tr>
+                    <th scope="col">Spalte</th>
+                    <th scope="col" class="mc-contacts__wide">Beispiel</th>
+                    <th scope="col">Feld</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < table.Columns.Count; i++)
+                {
+                    var sample = table.Rows.Select(r => r[i]).Where(v => v.Trim().Length > 0).Take(2).ToList();
+                    <tr>
+                        <td data-label="Spalte"><strong>@(table.Columns[i].Length > 0 ? table.Columns[i] : $"Spalte {i + 1}")</strong></td>
+                        <td data-label="Beispiel" class="mc-contacts__wide mat-muted">@string.Join(" · ", sample.Select(s => s.Length > 40 ? s[..40] + "…" : s))</td>
+                        <td data-label="Feld">
+                            <select class="mat-select" name="mapping" aria-label="Feld für „@table.Columns[i]“">
+                                @foreach (var choice in ImportModel.FieldChoices)
+                                {
+                                    <option value="@choice.Value" selected="@(choice.Value == Model.Mapping[i])">@choice.Label</option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </mc-table>
+        <mc-buttons save="Importieren" save-icon="upload" back="/Contacts/Import" />
+    </form>
+}

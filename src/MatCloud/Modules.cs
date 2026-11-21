@@ -1,5 +1,6 @@
 using MatCloud.Apps.Calendar;
 using MatCloud.Apps.Clip;
+using MatCloud.Apps.Contacts;
 using MatCloud.Apps.Drive;
 using MatCloud.Apps.Note;
 using MatCloud.Core.Modules;
@@ -12,5 +13,5 @@ namespace MatCloud;
 /// </summary>
 public static class InstalledModules
 {
-    public static void Install() => CloudModules.Install(new ClipModule(), new NoteModule(), new CalendarModule(), new DriveModule());
+    public static void Install() => CloudModules.Install(new ClipModule(), new NoteModule(), new CalendarModule(), new DriveModule(), new ContactsModule());
 }

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The ThixContacts module of MatCloud: the contacts and contact groups of an account in the browser. ThixContacts keeps them in the general sync
+    (app contacts, collections "contacts" and "contact-groups"); this module is a web client of the same items (UsesGeneralSync): its pages list, search,
+    edit, group, merge, import (vCard 3.0/4.0, CSV) and export them, and the devices see every change. The pictures of contacts are kept once per content
+    in the data volume (/data/contacts). ThixMail reads and writes the contacts of its account, ThixCalendar reads them (the grants of the module).
+    vCard and CSV are read and written by own code (no dependency); ThixOffice.Pim implements the same rules, the fixtures in
+    tests/MatCloud.Tests/Fixtures/Contacts hold both to the same results.
+  -->
+  <PropertyGroup>
+    <RootNamespace>MatCloud.Apps.Contacts</RootNamespace>
+    <AssemblyName>MatCloud.Apps.Contacts</AssemblyName>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <MatCloudWebUsings>true</MatCloudWebUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MatCloud.Core\MatCloud.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MatCloud.Tests" />
+  </ItemGroup>
+
+</Project>

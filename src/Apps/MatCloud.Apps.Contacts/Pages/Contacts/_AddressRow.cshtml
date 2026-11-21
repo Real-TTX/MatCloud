@@ -1,0 +1,28 @@
+@model MatCloud.Apps.Contacts.Pages.Contacts.AddressRow
+@using MatCloud.Apps.Contacts.Pages.Contacts
+@using MatCloud.Contract.Contacts
+@* One address of the form: its label, street (lines), postal code and city, region, country; the names are the lists of the page model. *@
+<div class="mc-row mc-row--address@(Model.Error is null ? "" : " is-invalid")" data-row>
+    <div class="mc-row__line">
+        <select class="mat-select mc-row__label" name="AddressLabels" aria-label="Art">
+            @foreach (var l in ContactsUi.LabelsWith(ContactsUi.AddressLabels, Model.Label))
+            {
+                <option value="@l.Value" selected="@(l.Value == Model.Label)">@l.Label</option>
+            }
+        </select>
+        <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon" data-remove-row aria-label="Adresse entfernen" data-tip="Entfernen">@Ui.Icon("x")</button>
+    </div>
+    <textarea class="mat-textarea" name="AddressStreets" rows="2" placeholder="Straße und Hausnummer" aria-label="Straße" maxlength="@ContactsContract.MaxValueLength">@Model.Street</textarea>
+    <div class="mc-row__city">
+        <input class="mat-input" name="AddressPostals" value="@Model.PostalCode" placeholder="PLZ" aria-label="Postleitzahl" maxlength="@ContactsContract.MaxValueLength" />
+        <input class="mat-input" name="AddressCities" value="@Model.City" placeholder="Ort" aria-label="Ort" maxlength="@ContactsContract.MaxValueLength" />
+    </div>
+    <div class="mc-row__city">
+        <input class="mat-input" name="AddressRegions" value="@Model.Region" placeholder="Bundesland / Region" aria-label="Region" maxlength="@ContactsContract.MaxValueLength" />
+        <input class="mat-input" name="AddressCountries" value="@Model.Country" placeholder="Land" aria-label="Land" maxlength="@ContactsContract.MaxValueLength" />
+    </div>
+    @if (Model.Error is not null)
+    {
+        <span class="mat-error mc-row__error">@Model.Error</span>
+    }
+</div>

@@ -54,6 +54,13 @@ public interface ICloudModule
     /// </summary>
     IReadOnlyList<string> GuestApps => [];
 
+    /// <summary>
+    /// The read-only grant: apps whose devices may READ the module's data of their account (the general sync's changes and wait, and the GET routes of
+    /// its device API), never change it (ThixCalendar reads the contacts). Empty by default. Checked with <see cref="Business.Actor.MayRead"/> and in
+    /// <see cref="Api.DeviceEndpoints.ForApp"/> (only GET and HEAD); it follows the switch of the module like <see cref="GuestApps"/>.
+    /// </summary>
+    IReadOnlyList<string> ReadingGuestApps => [];
+
     /// <summary>Its services (most modules need none: the business layer is static).</summary>
     void AddServices(IServiceCollection services);
 
@@ -110,4 +117,9 @@ public static class CloudModules
     /// <summary>True when the module of <paramref name="appId"/> lets the devices of <paramref name="guestApp"/> in (<see cref="ICloudModule.GuestApps"/>).</summary>
     public static bool IsGuest(string appId, string? guestApp)
         => guestApp is not null && Find(appId) is { } module && module.GuestApps.Contains(guestApp, StringComparer.Ordinal);
+
+    /// <summary>True when the module of <paramref name="appId"/> lets the devices of <paramref name="guestApp"/> read its data (a full guest may too).</summary>
+    public static bool IsReadingGuest(string appId, string? guestApp)
+        => IsGuest(appId, guestApp)
+           || (guestApp is not null && Find(appId) is { } module && module.ReadingGuestApps.Contains(guestApp, StringComparer.Ordinal));
 }

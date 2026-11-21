@@ -1,0 +1,43 @@
+@page "/Contacts/Duplicates"
+@model MatCloud.Apps.Contacts.Pages.Contacts.DuplicatesModel
+@using MatCloud.Apps.Contacts.Pages.Contacts
+@{
+    ViewData["Title"] = "Dubletten";
+    ViewData["PageSub"] = "Kontakte mit demselben Namen, einer gleichen E-Mail-Adresse oder Telefonnummer.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kontakte", "/Contacts"), ("Dubletten", null) };
+}
+
+@section TopActions {
+    <partial name="_ContactsTopActions" />
+}
+
+<div class="mat-list">
+    @if (Model.Sets.Count == 0)
+    {
+        <partial name="_Empty" model="@(new EmptyStateModel("check-circle", "Keine Dubletten", "Jeder Kontakt kommt nur einmal vor.", false))" />
+    }
+    else
+    {
+        <p class="mat-hint">@(Model.Sets.Count == 1 ? "1 Gruppe" : $"{Model.Sets.Count} Gruppen") von Dubletten.</p>
+        @foreach (var set in Model.Sets)
+        {
+            <section class="mat-card mc-duplicate" aria-label="Dubletten von @set[0].Name">
+                <div class="mat-card__body">
+                    <ul class="mc-member-list">
+                        @foreach (var c in set)
+                        {
+                            <li class="mc-member">
+                                @ContactsUi.Avatar(c.Data, "sm")
+                                <a href="/Contacts/Contact?key=@c.Key" class="mc-member__name">@c.Name</a>
+                                <span class="mc-member__mail">@string.Join(" · ", new[] { c.Data.Emails.FirstOrDefault()?.Value, c.Data.Phones.FirstOrDefault()?.Value, c.Data.Company }.Where(v => !string.IsNullOrEmpty(v)))</span>
+                            </li>
+                        }
+                    </ul>
+                    <div class="mat-actions">
+                        <a class="mat-btn mat-btn--primary" href="/Contacts/Merge?@string.Join("&", set.Select(c => "keys=" + Uri.EscapeDataString(c.Key)))">@Ui.Icon("layers")<span>Zusammenführen …</span></a>
+                    </div>
+                </div>
+            </section>
+        }
+    }
+</div>

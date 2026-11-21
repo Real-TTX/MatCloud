@@ -1,0 +1,197 @@
+@page "/Contacts/Contact"
+@model MatCloud.Apps.Contacts.Pages.Contacts.ContactModel
+@using MatCloud.Apps.Contacts.Pages.Contacts
+@using MatCloud.Contract.Contacts
+@{
+    var e = Model.Existing;
+    var title = Model.IsNew ? "Neuer Kontakt" : e!.Name;
+    ViewData["Title"] = title;
+    ViewData["PageSub"] = Model.IsNew ? "Er steht sofort auch in ThixContacts auf deinen Geräten." : ContactsUi.Work(e!.Data) is { Length: > 0 } work ? work : "Geändert " + Dates.Stamp(e.UpdatedDate) + " " + e.Where;
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kontakte", "/Contacts"), (Model.IsNew ? "Neuer Kontakt" : e!.Name, null) };
+    ViewData["Width"] = "narrow";
+    var preview = new ContactData { GivenName = Model.GivenName, FamilyName = Model.FamilyName, Company = Model.Company, DisplayName = Model.DisplayName, PhotoId = Model.PhotoId };
+    string? RowError(string field) => Model.RowErrors.TryGetValue(field, out var m) ? m : null;
+}
+
+@section TopActions {
+    <partial name="_ContactsTopActions" />
+}
+
+@functions {
+    // one row of a kind: the label (a select of the known ones) and the value; the name attributes are the lists of the page model
+    private Microsoft.AspNetCore.Html.IHtmlContent ValueRow(string kind, IReadOnlyList<MatCloud.Core.Controls.Choice> labels, string label, string value, string type, string placeholder, string? error)
+    {
+        var sb = new System.Text.StringBuilder();
+        Func<string?, string?> enc = System.Net.WebUtility.HtmlEncode;
+        sb.Append($"<div class=\"mc-row{(error is null ? "" : " is-invalid")}\" data-row>");
+        sb.Append($"<select class=\"mat-select mc-row__label\" name=\"{kind}Labels\" aria-label=\"Art\">");
+        foreach (var l in ContactsUi.LabelsWith(labels, label))
+        {
+            sb.Append($"<option value=\"{enc(l.Value)}\"{(l.Value == label ? " selected" : "")}>{enc(l.Label)}</option>");
+        }
+
+        sb.Append("</select>");
+        sb.Append($"<input class=\"mat-input mc-row__value\" type=\"{type}\" name=\"{kind}Values\" value=\"{enc(value)}\" placeholder=\"{enc(placeholder)}\" maxlength=\"{ContactsContract.MaxValueLength}\" aria-label=\"{enc(placeholder)}\"{(error is null ? "" : " aria-invalid=\"true\"")} />");
+        sb.Append($"<button type=\"button\" class=\"mat-btn mat-btn--ghost mat-btn--icon\" data-remove-row aria-label=\"Entfernen\" data-tip=\"Entfernen\">{Ui.Icon("x")}</button>");
+        if (error is not null)
+        {
+            sb.Append($"<span class=\"mat-error mc-row__error\">{enc(error)}</span>");
+        }
+
+        sb.Append("</div>");
+        return new Microsoft.AspNetCore.Html.HtmlString(sb.ToString());
+    }
+}
+
+<form class="mat-form mc-contact-form" method="post" enctype="multipart/form-data" novalidate>
+    <input type="hidden" name="Key" value="@Model.Key" />
+    <input type="hidden" name="Revision" value="@Model.Revision" />
+    <input type="hidden" name="PhotoId" value="@Model.PhotoId" />
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+
+    <div class="mat-card mc-contact-head">
+        <div class="mat-card__body mc-contact-head__body">
+            @ContactsUi.Avatar(preview, "xl")
+            <div class="mc-contact-head__fields">
+                <mc-field name="Photo" kind="file" label="Bild" accept="image/jpeg,image/png,image/gif,image/webp" max-size="5242880" optional
+                          hint="JPEG, PNG, GIF oder WebP, höchstens 5 MB." />
+                @if (Model.PhotoId.Length > 0)
+                {
+                    <mc-field name="RemovePhoto" kind="check" label="Bild entfernen" value="@Model.RemovePhoto" />
+                }
+                <mc-field name="IsFavorite" kind="switch" label="Favorit" value="@Model.IsFavorite" />
+            </div>
+        </div>
+    </div>
+
+    <div data-tabs class="mc-contact-tabs">
+        <div class="mat-tabs" role="tablist" aria-label="Bereiche des Kontakts">
+            <button type="button" class="mat-tab" role="tab" id="tab-general" aria-selected="true" aria-controls="panel-general">@Ui.Icon("user")<span>Allgemein</span></button>
+            <button type="button" class="mat-tab" role="tab" id="tab-details" aria-selected="false" aria-controls="panel-details" tabindex="-1">@Ui.Icon("list")<span>Details</span></button>
+            <button type="button" class="mat-tab" role="tab" id="tab-notes" aria-selected="false" aria-controls="panel-notes" tabindex="-1">@Ui.Icon("file-text")<span>Notizen</span></button>
+        </div>
+
+        <div class="mat-tabpanel" role="tabpanel" id="panel-general" aria-labelledby="tab-general">
+            <div class="mat-card">
+                <div class="mat-card__body mc-contact-grid">
+                    <mc-field name="Prefix" label="Anrede" optional value="@Model.Prefix" maxlength="200" placeholder="Dr." />
+                    <mc-field name="GivenName" label="Vorname" value="@Model.GivenName" maxlength="200" autofocus="@Model.IsNew" autocomplete="off" />
+                    <mc-field name="MiddleName" label="Weitere Vornamen" optional value="@Model.MiddleName" maxlength="200" />
+                    <mc-field name="FamilyName" label="Nachname" value="@Model.FamilyName" maxlength="200" autocomplete="off" />
+                    <mc-field name="Suffix" label="Namenszusatz" optional value="@Model.Suffix" maxlength="200" placeholder="jun." />
+                    <mc-field name="DisplayName" label="Anzeigename" optional value="@Model.DisplayName" maxlength="200" hint="Leer: aus Vor- und Nachname." />
+                    <mc-field name="Company" label="Firma" optional value="@Model.Company" maxlength="200" />
+                    <mc-field name="Department" label="Abteilung" optional value="@Model.Department" maxlength="200" />
+                    <mc-field name="JobTitle" label="Position" optional value="@Model.JobTitle" maxlength="200" full />
+                </div>
+            </div>
+
+            <section class="mat-card mc-contact-values" aria-labelledby="emails-title">
+                <div class="mat-card__body">
+                    <h2 class="mat-card__title" id="emails-title">@Ui.Icon("mail")E-Mail</h2>
+                    <div data-rows="Email">
+                        @for (var i = 0; i < Model.EmailValues.Count; i++)
+                        {
+                            @ValueRow("Email", ContactsUi.EmailLabels, Model.EmailLabels.ElementAtOrDefault(i) ?? ContactLabels.Work, Model.EmailValues[i], "email", "name@example.com", RowError($"Emails[{i}]"))
+                        }
+                    </div>
+                    <template data-row-template="Email">@ValueRow("Email", ContactsUi.EmailLabels, ContactLabels.Work, "", "email", "name@example.com", null)</template>
+                    <button type="button" class="mat-btn mat-btn--ghost" data-add-row="Email">@Ui.Icon("plus")<span>E-Mail-Adresse hinzufügen</span></button>
+                </div>
+            </section>
+
+            <section class="mat-card mc-contact-values" aria-labelledby="phones-title">
+                <div class="mat-card__body">
+                    <h2 class="mat-card__title" id="phones-title">@Ui.Icon("smartphone")Telefon</h2>
+                    <div data-rows="Phone">
+                        @for (var i = 0; i < Model.PhoneValues.Count; i++)
+                        {
+                            @ValueRow("Phone", ContactsUi.PhoneLabels, Model.PhoneLabels.ElementAtOrDefault(i) ?? ContactLabels.Mobile, Model.PhoneValues[i], "tel", "+49 89 1234567", RowError($"Phones[{i}]"))
+                        }
+                    </div>
+                    <template data-row-template="Phone">@ValueRow("Phone", ContactsUi.PhoneLabels, ContactLabels.Mobile, "", "tel", "+49 89 1234567", null)</template>
+                    <button type="button" class="mat-btn mat-btn--ghost" data-add-row="Phone">@Ui.Icon("plus")<span>Telefonnummer hinzufügen</span></button>
+                </div>
+            </section>
+        </div>
+
+        <div class="mat-tabpanel" role="tabpanel" id="panel-details" aria-labelledby="tab-details" hidden>
+            <section class="mat-card mc-contact-values" aria-labelledby="addresses-title">
+                <div class="mat-card__body">
+                    <h2 class="mat-card__title" id="addresses-title">@Ui.Icon("home")Adressen</h2>
+                    <div data-rows="Address">
+                        @for (var i = 0; i < Model.AddressLabels.Count; i++)
+                        {
+                            <partial name="_AddressRow" model="@(new AddressRow(Model.AddressLabels[i], Model.AddressStreets.ElementAtOrDefault(i) ?? "", Model.AddressPostals.ElementAtOrDefault(i) ?? "",
+                                Model.AddressCities.ElementAtOrDefault(i) ?? "", Model.AddressRegions.ElementAtOrDefault(i) ?? "", Model.AddressCountries.ElementAtOrDefault(i) ?? "", RowError($"Addresses[{i}]")))" />
+                        }
+                    </div>
+                    <template data-row-template="Address"><partial name="_AddressRow" model="@(new AddressRow(ContactLabels.Work, "", "", "", "", "", null))" /></template>
+                    <button type="button" class="mat-btn mat-btn--ghost" data-add-row="Address">@Ui.Icon("plus")<span>Adresse hinzufügen</span></button>
+                </div>
+            </section>
+
+            <section class="mat-card mc-contact-values" aria-labelledby="urls-title">
+                <div class="mat-card__body">
+                    <h2 class="mat-card__title" id="urls-title">@Ui.Icon("globe")Webadressen</h2>
+                    <div data-rows="Url">
+                        @for (var i = 0; i < Model.UrlValues.Count; i++)
+                        {
+                            @ValueRow("Url", ContactsUi.UrlLabels, Model.UrlLabels.ElementAtOrDefault(i) ?? ContactLabels.Work, Model.UrlValues[i], "url", "https://example.com", RowError($"Urls[{i}]"))
+                        }
+                    </div>
+                    <template data-row-template="Url">@ValueRow("Url", ContactsUi.UrlLabels, ContactLabels.Work, "", "url", "https://example.com", null)</template>
+                    <button type="button" class="mat-btn mat-btn--ghost" data-add-row="Url">@Ui.Icon("plus")<span>Webadresse hinzufügen</span></button>
+                </div>
+            </section>
+
+            <div class="mat-card">
+                <div class="mat-card__body mc-contact-grid">
+                    <mc-field name="Birthday" label="Geburtstag" optional value="@Model.Birthday" placeholder="31.12.1980" hint="Ohne Jahr: 31.12." maxlength="12" />
+                    <mc-field name="Anniversary" label="Jahrestag" optional value="@Model.Anniversary" placeholder="31.12.2010" maxlength="12" />
+                    <mc-field name="Nickname" label="Spitzname" optional value="@Model.Nickname" maxlength="200" full />
+                    <div class="mat-field mat-field--full">
+                        <label class="mat-label" for="Categories">Kategorien <span class="mat-opt">(optional)</span></label>
+                        <div class="mat-picker" data-picker="tags" data-sep="," data-max-length="100">
+                            <input class="mat-picker__input" id="Categories" name="Categories" value="@Model.Categories" />
+                            <div class="mat-picker__options" hidden>
+                                @foreach (var c in Model.AllCategories)
+                                {
+                                    <button type="button" class="mat-picker__option" data-value="@c"><span class="mat-picker__text"><span class="mat-picker__name">@c</span></span></button>
+                                }
+                            </div>
+                        </div>
+                        <span class="mat-hint">Eine Kategorie eingeben und Eingabe drücken.</span>
+                    </div>
+                    @if (Model.AllGroups.Count > 0)
+                    {
+                        <fieldset class="mat-field mat-fieldset mat-field--full">
+                            <legend class="mat-legend">Gruppen</legend>
+                            <div class="mat-checks mat-checks--inline">
+                                @foreach (var g in Model.AllGroups)
+                                {
+                                    <label class="mat-check"><input type="checkbox" name="Groups" value="@g.Key" checked="@Model.Groups.Contains(g.Key)" /><span class="mat-check__text">@g.Name</span></label>
+                                }
+                            </div>
+                        </fieldset>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="mat-tabpanel" role="tabpanel" id="panel-notes" aria-labelledby="tab-notes" hidden>
+            <div class="mat-card">
+                <div class="mat-card__body">
+                    <mc-field name="Notes" kind="textarea" label="Notizen" optional value="@Model.Notes" rows="12" full />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <mc-buttons save="@(Model.IsNew ? "Anlegen" : "Speichern")" save-icon="@(Model.IsNew ? "plus" : "save")" back="/Contacts"
+                delete-handler="@(Model.IsNew ? null : "Delete")" delete-confirm="Diesen Kontakt löschen – auch in ThixContacts und ThixMail auf deinen Geräten?" />
+</form>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Contacts/js/contacts.js" asp-append-version="true"></script>
+}

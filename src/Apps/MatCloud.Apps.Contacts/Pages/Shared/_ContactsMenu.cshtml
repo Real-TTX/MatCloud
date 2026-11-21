@@ -1,0 +1,46 @@
+@model bool
+@using MatCloud.Core.Data
+@inject AppDbContext Db
+@inject CurrentUser Me
+@*
+    The menu of the contacts (the module ThixContacts), like the folder pane of Outlook's people: a new contact first, all contacts, favourites, the groups,
+    then the tools (groups, duplicates, import). Model: whether it is the menu shown.
+*@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    var group = Context.Request.Query["group"].ToString();
+    var show = Context.Request.Query["show"].ToString();
+    var onList = path.Equals("/Contacts", StringComparison.OrdinalIgnoreCase);
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    var all = onList && group.Length == 0 && show.Length == 0;
+    IReadOnlyList<GroupEntry> groups = [];
+    if (Model)
+    {
+        try
+        {
+            groups = await ContactBook.GroupsAsync(Db, Me.Actor, Context.RequestAborted);
+        }
+        catch (NotAllowedException)
+        {
+            // the app is switched off: the menu stays empty
+        }
+    }
+}
+<nav class="mat-nav__scroll" aria-label="Kontakte" data-nav-panel="@CloudApps.Contacts" hidden="@(!Model)">
+    <ul class="mat-nav__list">
+        <li><a class="mat-nav__item mat-nav__item--primary" href="/Contacts/Contact">@Ui.Icon("plus")<span>Neuer Kontakt</span></a></li>
+        <li><a class="@Cls(all)" href="/Contacts" aria-current="@Cur(all)">@Ui.Icon("users")<span>Alle Kontakte</span></a></li>
+        <li><a class="@Cls(onList && show == "favorites")" href="/Contacts?show=favorites" aria-current="@Cur(onList && show == "favorites")">@Ui.Icon("star")<span>Favoriten</span></a></li>
+        @foreach (var g in groups)
+        {
+            var active = onList && group == g.Key;
+            <li><a class="@Cls(active)" href="/Contacts?group=@Uri.EscapeDataString(g.Key)" aria-current="@Cur(active)">@Ui.Icon("user-circle")<span>@g.Name</span></a></li>
+        }
+    </ul>
+    <ul class="mat-nav__list">
+        <li><a class="@Cls(path.StartsWith("/Contacts/Group", StringComparison.OrdinalIgnoreCase))" href="/Contacts/Groups">@Ui.Icon("layers")<span>Kontaktgruppen</span></a></li>
+        <li><a class="@Cls(path.Equals("/Contacts/Duplicates", StringComparison.OrdinalIgnoreCase) || path.Equals("/Contacts/Merge", StringComparison.OrdinalIgnoreCase))" href="/Contacts/Duplicates">@Ui.Icon("copy")<span>Dubletten</span></a></li>
+        <li><a class="@Cls(path.Equals("/Contacts/Import", StringComparison.OrdinalIgnoreCase))" href="/Contacts/Import">@Ui.Icon("upload")<span>Importieren</span></a></li>
+    </ul>
+</nav>

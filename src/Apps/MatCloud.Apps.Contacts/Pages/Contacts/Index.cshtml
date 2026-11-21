@@ -1,0 +1,215 @@
+@page "/Contacts"
+@model MatCloud.Apps.Contacts.Pages.Contacts.IndexModel
+@using MatCloud.Apps.Contacts.Pages.Contacts
+@{
+    var groupName = Model.Result.Groups.FirstOrDefault(g => g.Key == Model.Toolbar.Filters[1].Selected)?.Name;
+    var favorites = Model.Toolbar.Filters[0].Selected is not null;
+    var title = groupName ?? (favorites ? "Favoriten" : "Kontakte");
+    ViewData["Title"] = title;
+    ViewData["PageSub"] = groupName is not null ? "Eine Kontaktgruppe." : "Die Kontakte von ThixContacts – auf allen Geräten gleich, auch in ThixMail.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Kontakte", groupName is null && !favorites ? null : "/Contacts"), (groupName ?? (favorites ? "Favoriten" : "Alle Kontakte"), null) };
+}
+
+@section TopActions {
+    <partial name="_ContactsTopActions" />
+}
+
+@* The list reloads itself when a device changes a contact (contacts.js waits on /live/contacts/revision). *@
+<div class="mat-list mc-contacts" data-live data-live-revision="@Model.Result.Latest">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+
+    @if (Model.Letters.Count > 1)
+    {
+        <nav class="mc-letters" aria-label="Alphabet">
+            @foreach (var (letter, page) in Model.Letters)
+            {
+                <a class="mc-letters__item" href="@Model.Toolbar.UrlWithPage(page)#letter-@letter">@letter</a>
+            }
+        </nav>
+    }
+
+    <div class="mc-live-region" data-live-region>
+        @if (Model.Result.Items.Count == 0)
+        {
+            var first = Model.Result.Total == 0;
+            <partial name="_Empty" model="@(new EmptyStateModel("users", first ? "Noch keine Kontakte" : "Nichts gefunden",
+                first ? "Lege den ersten Kontakt an, importiere eine vCard- oder CSV-Datei – oder verbinde ThixContacts in den Einstellungen unter „Cloud“ mit dieser MatCloud."
+                      : "Kein Kontakt passt zur Suche oder zum Filter.",
+                first, "/Contacts/Contact", "Neuer Kontakt", Model.Toolbar.UrlReset()))" />
+        }
+        else
+        {
+            string? lastLetter = null;
+            <mc-table caption="Kontakte">
+                <thead>
+                    <tr>
+                        <th scope="col" class="mc-contacts__check"><input type="checkbox" class="mc-contacts__box" data-select-all form="contacts-selection" aria-label="Alle auswählen" /></th>
+                        <th scope="col">Name</th>
+                        <th scope="col" class="mc-contacts__wide">E-Mail</th>
+                        <th scope="col" class="mc-contacts__wide">Telefon</th>
+                        <th scope="col" class="mc-contacts__wide">Firma</th>
+                        <th scope="col"><span class="mat-sr-only">Favorit</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in Model.Result.Items)
+                    {
+                        var letter = ContactRules.IndexLetter(c.Data, Model.Sort);
+                        var anchor = letter != lastLetter ? "letter-" + letter : null;
+                        lastLetter = letter;
+                        var name = ContactRules.ListName(c.Data, Model.Sort);
+                        <tr data-item="@c.Key" id="@anchor">
+                            <td class="mc-contacts__check"><input type="checkbox" class="mc-contacts__box" name="keys" value="@c.Key" form="contacts-selection" data-select-row aria-label="„@name“ auswählen" /></td>
+                            <td data-label="Name" class="mc-contacts__name">
+                                <a href="/Contacts/Contact?key=@c.Key" class="mc-contacts__link">
+                                    @ContactsUi.Avatar(c.Data, "sm")
+                                    <span class="mc-contacts__title">@name</span>
+                                </a>
+                                @if (c.Data.Categories.Count > 0)
+                                {
+                                    <span class="mc-contacts__tags">
+                                        @foreach (var category in c.Data.Categories.Take(3))
+                                        {
+                                            <span class="mat-tag">@category</span>
+                                        }
+                                    </span>
+                                }
+                                <span class="mc-contacts__phone-line">@(c.Data.Emails.FirstOrDefault()?.Value ?? c.Data.Phones.FirstOrDefault()?.Value)</span>
+                            </td>
+                            <td data-label="E-Mail" class="mc-contacts__wide">
+                                @if (c.Data.Emails.FirstOrDefault() is { } mail)
+                                {
+                                    <a href="mailto:@mail.Value">@mail.Value</a>
+                                }
+                            </td>
+                            <td data-label="Telefon" class="mc-contacts__wide mat-mono">@(c.Data.Phones.FirstOrDefault()?.Value)</td>
+                            <td data-label="Firma" class="mc-contacts__wide">@c.Data.Company</td>
+                            <td class="mc-contacts__star">
+                                <form method="post" asp-page-handler="Favorite" asp-route-key="@c.Key" asp-route-on="@(!c.Data.IsFavorite)">
+                                    <input type="hidden" name="returnUrl" value="@Model.Here" />
+                                    <button type="submit" class="mat-btn mat-btn--ghost mat-btn--icon mc-star @(c.Data.IsFavorite ? "is-on" : "")" aria-pressed="@(c.Data.IsFavorite ? "true" : "false")"
+                                            aria-label="@(c.Data.IsFavorite ? $"„{name}“ aus den Favoriten nehmen" : $"„{name}“ zu den Favoriten")" data-tip="@(c.Data.IsFavorite ? "Favorit" : "Zu den Favoriten")">@Ui.Icon("star")</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </mc-table>
+        }
+
+        @if (Model.Pager is not null)
+        {
+            <partial name="_Pager" model="Model.Pager" />
+        }
+    </div>
+
+    <form id="contacts-selection" method="post" hidden>
+        <input type="hidden" name="returnUrl" value="@Model.Here" />
+    </form>
+
+    @* Below the list (UI rule): new and import first, then what works on the selection, the delete apart. contacts.js enables them by the selection (data-needs). *@
+    <div class="mat-actions mc-contacts__actions">
+        <a class="mat-btn mat-btn--primary" href="/Contacts/Contact">@Ui.Icon("plus")<span>Neuer Kontakt</span></a>
+        <a class="mat-btn mat-btn--secondary" href="/Contacts/Import">@Ui.Icon("upload")<span>Importieren</span></a>
+        <button type="button" class="mat-btn mat-btn--secondary" data-dialog-open="contacts-export">@Ui.Icon("download")<span>Exportieren …</span></button>
+        <button type="button" class="mat-btn mat-btn--secondary" data-needs="some" data-dialog-open="contacts-categorize" disabled>@Ui.Icon("tag")<span>Kategorisieren …</span></button>
+        <button type="button" class="mat-btn mat-btn--secondary" data-needs="some" data-dialog-open="contacts-group" disabled>@Ui.Icon("users")<span>Zur Gruppe …</span></button>
+        <button type="submit" form="contacts-selection" class="mat-btn mat-btn--secondary" data-needs="several" formaction="/Contacts/Merge" formmethod="get" disabled>@Ui.Icon("layers")<span>Zusammenführen</span></button>
+        <span class="mat-btn-row__spacer"></span>
+        <button type="submit" form="contacts-selection" class="mat-btn mat-btn--danger" data-needs="some" formaction="?handler=Delete" disabled
+                data-confirm="Die ausgewählten Kontakte löschen – auch in ThixContacts und ThixMail auf deinen Geräten?" data-confirm-danger>@Ui.Icon("trash")<span>Löschen</span></button>
+    </div>
+
+    <dialog class="mat-dialog mat-dialog--sm" id="contacts-export" aria-labelledby="contacts-export-title">
+        <div class="mat-dialog__form">
+            <div class="mat-dialog__head">
+                @Ui.Icon("download")
+                <h2 class="mat-dialog__title" id="contacts-export-title">Exportieren</h2>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+            </div>
+            <div class="mat-dialog__body mat-form">
+                <fieldset class="mat-field mat-fieldset">
+                    <legend class="mat-legend">Format</legend>
+                    <div class="mat-checks">
+                        <label class="mat-check"><input type="radio" name="format" value="vcf3" form="contacts-selection" checked /><span class="mat-check__text">vCard 3.0 <small class="mat-muted">Outlook, Apple, Android</small></span></label>
+                        <label class="mat-check"><input type="radio" name="format" value="vcf4" form="contacts-selection" /><span class="mat-check__text">vCard 4.0</span></label>
+                        <label class="mat-check"><input type="radio" name="format" value="csv" form="contacts-selection" /><span class="mat-check__text">CSV <small class="mat-muted">Excel, Outlook (ohne Bilder)</small></span></label>
+                    </div>
+                </fieldset>
+                <p class="mat-hint" data-export-hint>Ohne Auswahl werden alle Kontakte exportiert.</p>
+            </div>
+            <div class="mat-dialog__foot">
+                <div class="mat-btn-row mat-btn-row--plain">
+                    <button type="submit" form="contacts-selection" formaction="?handler=Export" class="mat-btn mat-btn--primary" data-dialog-close>@Ui.Icon("download")<span>Exportieren</span></button>
+                    <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog class="mat-dialog mat-dialog--sm" id="contacts-categorize" aria-labelledby="contacts-categorize-title">
+        <div class="mat-dialog__form">
+            <div class="mat-dialog__head">
+                @Ui.Icon("tag")
+                <h2 class="mat-dialog__title" id="contacts-categorize-title">Kategorisieren</h2>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+            </div>
+            <div class="mat-dialog__body mat-form">
+                <div class="mat-field">
+                    <label class="mat-label" for="contacts-category">Kategorie</label>
+                    <input class="mat-input" id="contacts-category" name="category" form="contacts-selection" list="contacts-categories" maxlength="@ContactRules.MaxCategoryLength" autocomplete="off" />
+                    <datalist id="contacts-categories">
+                        @foreach (var category in Model.Result.Categories)
+                        {
+                            <option value="@category"></option>
+                        }
+                    </datalist>
+                    <span class="mat-hint">Eine vorhandene wählen oder eine neue eingeben.</span>
+                </div>
+                <label class="mat-check"><input type="checkbox" name="remove" value="true" form="contacts-selection" /><span class="mat-check__text">Kategorie entfernen statt setzen</span></label>
+            </div>
+            <div class="mat-dialog__foot">
+                <div class="mat-btn-row mat-btn-row--plain">
+                    <button type="submit" form="contacts-selection" formaction="?handler=Categorize" class="mat-btn mat-btn--primary">@Ui.Icon("check")<span>Übernehmen</span></button>
+                    <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog class="mat-dialog mat-dialog--sm" id="contacts-group" aria-labelledby="contacts-group-title">
+        <div class="mat-dialog__form">
+            <div class="mat-dialog__head">
+                @Ui.Icon("users")
+                <h2 class="mat-dialog__title" id="contacts-group-title">Zur Gruppe hinzufügen</h2>
+                <button type="button" class="mat-btn mat-btn--ghost mat-btn--icon mat-dialog__close" data-dialog-close aria-label="Schließen">@Ui.Icon("x")</button>
+            </div>
+            <div class="mat-dialog__body mat-form">
+                <div class="mat-field">
+                    <label class="mat-label" for="contacts-group-select">Gruppe</label>
+                    <select class="mat-select" id="contacts-group-select" name="group" form="contacts-selection">
+                        <option value="">Neue Gruppe …</option>
+                        @foreach (var g in Model.Result.Groups)
+                        {
+                            <option value="@g.Key">@g.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="mat-field" data-show-if="#contacts-group-select" data-show-value="">
+                    <label class="mat-label" for="contacts-new-group">Name der neuen Gruppe</label>
+                    <input class="mat-input" id="contacts-new-group" name="newGroup" form="contacts-selection" maxlength="@ContactRules.MaxCategoryLength" autocomplete="off" />
+                </div>
+            </div>
+            <div class="mat-dialog__foot">
+                <div class="mat-btn-row mat-btn-row--plain">
+                    <button type="submit" form="contacts-selection" formaction="?handler=AddToGroup" class="mat-btn mat-btn--primary">@Ui.Icon("plus")<span>Hinzufügen</span></button>
+                    <button type="button" class="mat-btn mat-btn--secondary" data-dialog-close>Abbrechen</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+</div>
+
+@section Scripts {
+    <script src="~/_content/MatCloud.Apps.Contacts/js/contacts.js" asp-append-version="true"></script>
+}

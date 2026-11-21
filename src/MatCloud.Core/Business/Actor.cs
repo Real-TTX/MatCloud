@@ -18,6 +18,12 @@ public sealed record Actor(long UserId, bool IsAdmin, long? DeviceId = null, str
     /// switched on is a question of its own (<see cref="AppService.IsEnabledAsync"/>).
     /// </summary>
     public bool MayUse(string app) => DeviceId is null || App == app || Modules.CloudModules.IsGuest(app, App);
+
+    /// <summary>
+    /// Whether this actor may READ the data of <paramref name="app"/>: everyone who may use it, and the devices of an app the module lets read
+    /// (<see cref="Modules.ICloudModule.ReadingGuestApps"/>: ThixCalendar reads the contacts).
+    /// </summary>
+    public bool MayRead(string app) => MayUse(app) || Modules.CloudModules.IsReadingGuest(app, App);
 }
 
 /// <summary>The answer of a change in the business layer: what came out of it, or what is wrong (already worded for the person, in German).</summary>

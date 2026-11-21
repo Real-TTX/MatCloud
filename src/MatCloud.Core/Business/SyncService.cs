@@ -73,7 +73,7 @@ public static class SyncService
     /// <summary>The changes of the app above <paramref name="since"/>, oldest first (tombstones included).</summary>
     public static async Task<SyncChangeSet> ChangesAsync(AppDbContext db, Actor actor, string app, long since, int limit, CancellationToken ct = default)
     {
-        Require(actor, app);
+        RequireRead(actor, app);
         limit = Math.Clamp(limit, 1, SyncContract.MaxBatchSize);
         var rows = await db.SyncItems.AsNoTracking()
             .Where(i => i.UserId == actor.UserId && i.App == app && i.Revision > since)
@@ -107,7 +107,7 @@ public static class SyncService
     /// <summary>The long poll: the latest revision as soon as it is not <paramref name="since"/> any more (a change, or the data deleted), at the latest after <paramref name="timeout"/>.</summary>
     public static Task<long> WaitAsync(AppDbContext db, Actor actor, string app, long since, TimeSpan timeout, CancellationToken ct)
     {
-        Require(actor, app);
+        RequireRead(actor, app);
         return Revisions.WaitAsync(Revisions.Stream(app, actor.UserId), since, () => LatestAsync(db, actor.UserId, app, ct), timeout, ct);
     }
 
@@ -216,10 +216,19 @@ public static class SyncService
         Revision = row.Revision,
     };
 
-    /// <summary>A device of another app, and an app with a module of its own, may not use the general sync of <paramref name="app"/>.</summary>
+    /// <summary>A device of another app (unless the module grants it), and an app with a module of its own, may not change the general sync of <paramref name="app"/>.</summary>
     private static void Require(Actor actor, string app)
     {
         if (!actor.MayUse(app) || !CloudModules.UsesGeneralSync(app) || !CloudApps.IsKnown(app))
+        {
+            throw new NotAllowedException(actor.MayRead(app) ? "Dieses Gerät darf diese Daten nur lesen." : "Dieses Gerät darf diese Daten nicht lesen.");
+        }
+    }
+
+    /// <summary>Reading: also a device of an app the module lets read (<see cref="Modules.ICloudModule.ReadingGuestApps"/>).</summary>
+    private static void RequireRead(Actor actor, string app)
+    {
+        if (!actor.MayRead(app) || !CloudModules.UsesGeneralSync(app) || !CloudApps.IsKnown(app))
         {
             throw new NotAllowedException("Dieses Gerät darf diese Daten nicht lesen.");
         }

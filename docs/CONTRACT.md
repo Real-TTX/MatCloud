@@ -18,7 +18,7 @@ version, then the SHA-256 of each copied file with LF line ends). The app's test
 - A **device** is one app on one computer. It signs in for exactly one app (`app`: an id of `CloudApps`) and its token reads and writes only the data of
   that app of its account. `401`: the token is unknown or the device was removed (the app signs out). `403`: the app is switched off by an
   administrator, or the route belongs to another app.
-- **The one exception is a grant of a module, explicit and on the server** (`ICloudModule.GuestApps`): the Drive lets the devices of ThixWrite,
+- **The one exception is a grant of a module, explicit and on the server** (`ICloudModule.GuestApps`, read-only `ReadingGuestApps`; see ThixContacts below for ThixMail and ThixCalendar): the Drive lets the devices of ThixWrite,
   ThixCalc and ThixShow (`DriveContract.GuestApps`) call its routes and reach the Drive of THEIR account. Nothing else is loosened: a device of
   ThixClip or ThixNote gets 403 at the Drive, a device of the Drive 403 at the routes of ThixClip. While the Drive is switched off, the office apps
   get 403 there too (their own sign-in, account and general sync keep working).
@@ -121,6 +121,24 @@ var created = await client.UploadDriveFileAsync(folderId, "Angebot.docx", docume
 
 `UploadDriveFileAsync` and `SaveDriveFileAsync` send up to 64 MB in one request and larger files in pieces of 8 MB (a broken piece is sent again after
 asking how much arrived); a stream that cannot seek is spooled to a temporary file first. `DownloadDriveFileAsync` streams into the given stream.
+
+## ThixContacts (the module `contacts`, contract 1.5.0) – also for ThixMail and ThixCalendar
+
+The contacts live in the general sync of the app `contacts` (`Contacts/ContactsContract.cs`): collection `contacts` (key = a GUID, data =
+`ContactData` as JSON: `prefix`, `givenName`, `middleName`, `familyName`, `suffix`, `nickname`, `displayName`, `company`, `department`,
+`jobTitle`, `emails`/`phones`/`urls` = `[{ label, value }]`, `addresses` = `[{ label, street, postalCode, city, region, country }]`,
+`birthday`/`anniversary` = `yyyy-MM-dd` or `--MM-dd`, `notes`, `photoId`, `categories`, `isFavorite`; fields an app does not know are kept)
+and `contact-groups` (`ContactGroupData { name, members: [keys], notes }`). Labels: `ContactLabels` (`work`, `home`, `other`, `mobile`, `main`,
+`work-fax`, `home-fax`, `pager`, `blog`, `profile`) or a label of the user's own. Pictures are not in the items:
+
+| Route | What |
+|---|---|
+| `POST /api/v1/contacts/photos` | the bytes of a JPEG, PNG, GIF or WebP (≤ 5 MB) → `ContactPhotoInfo { id, contentType, size }`; `id` = SHA-256 hex, the value of `photoId` |
+| `GET /api/v1/contacts/photos/{id}` | the bytes (404 when the account has none) |
+
+**The grants (1.5.0).** The general sync takes `?app=<id>` (`SyncContract.AppParameter`; `MatCloudClient.GetChangesAsync(app, …)`, `WaitAsync(app, …)`,
+`PushAsync(app, …)`): a device of `mail` reads and writes `contacts` and `calendar` of its account (and uploads pictures), a device of `calendar` reads
+`contacts` (changes, wait, pictures – a push or an upload is 403). Every other combination is 403, also while the target app is switched off.
 
 ## ThixCalendar (the module `calendar`, contract 1.3.0)
 

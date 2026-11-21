@@ -30,6 +30,9 @@ public sealed class CalendarModule : ICloudModule
 
     public bool UsesGeneralSync => true;
 
+    /// <summary>ThixMail shows the calendar of its account and answers invitations (<see cref="MatCloud.Contract.Calendar.CalendarContract.GuestApps"/>).</summary>
+    public IReadOnlyList<string> GuestApps => MatCloud.Contract.Calendar.CalendarContract.GuestApps;
+
     public void AddServices(IServiceCollection services)
     {
         services.AddSingleton<CalendarKeys>();

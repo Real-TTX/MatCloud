@@ -24,6 +24,15 @@ devices in here and keeps its data the same on every PC and Mac of an account. T
   in pieces; every new version only with `If-Match`. Its device API `/api/v1/drive` is **granted** to ThixWrite, ThixCalc and ThixShow
   (`ICloudModule.GuestApps` = `DriveContract.GuestApps`): their devices reach the Drive of their account; nothing else is loosened. Pages `/Drive`
   (folder or search, list or tiles), `/Drive/Recent`, `/Drive/Starred`, `/Drive/Trash`, `/Drive/Item` (Allgemein), `/Drive/Item/Versions`.
+- The fifth is **ThixContacts** (`MatCloud.Apps.Contacts`, app `contacts`, contract 1.5.0): a web client of the general sync like ThixNote (collections
+  `contacts` = `ContactData`, `contact-groups` = `ContactGroupData`, JSON of the contract), no tables; the pictures once per account and content in
+  `/data/contacts/photos/<user>/` (`ContactPhotoStore`, routes `/api/v1/contacts/photos`). vCard 2.1/3.0/4.0 and CSV by own code (`VCard`, `ContactCsv`;
+  ThixOffice.Pim implements the same rules, held together by the shared fixtures `tests/MatCloud.Tests/Fixtures/Contacts`). **Grants:** `mail` reads and
+  writes the contacts (`GuestApps`) and the calendar (`CalendarModule.GuestApps`) of its account; `calendar` only reads the contacts
+  (`ICloudModule.ReadingGuestApps`, `Actor.MayRead`). A device names another app's general sync with `?app=<id>` (`SyncContract.AppParameter`). Pages
+  `/Contacts` (list: search, filter Favoriten/Gruppe/Kategorie, sort Vorname/Nachname/Firma, letters, selection actions), `/Contacts/Contact` (tabs
+  Allgemein | Details | Notizen), `/Contacts/Groups`, `/Contacts/Group`, `/Contacts/Import` (vCard at once, CSV with column mapping), `/Contacts/Duplicates`,
+  `/Contacts/Merge`.
 - **Apps in the general sync** (everything else, ThixNote first): no code here. They keep items of their own choosing (collection + key + data) and
   MatCloud keeps them in step (last writer wins, tombstones, revisions, long poll).
 
@@ -70,7 +79,7 @@ plain JavaScript, Docker-first.
 ```
 src/MatCloud.Contract       THE contract with the apps (copied into them, no dependencies): CloudContract (protocol 1, header X-MatCloud-Protocol, routes of
                             the sign-in and the account, JSON options), CloudApps (the known app ids: clip, note, calendar, drive, write, calc, show, tunnel,
-                            launcher, fred), Devices.cs (password sign-in, sign-in in the browser: DeviceLinkRequest/Start/PollResponse, AccountInfo), Sync.cs
+                            launcher, fred, contacts, mail), Devices.cs (password sign-in, sign-in in the browser: DeviceLinkRequest/Start/PollResponse, AccountInfo), Sync.cs
                             (the general sync: SyncContract, SyncItemDto, SyncChangeSet, SyncPushRequest/Result), Clip/ (ClipContract, ClipDto ..., ClearRange),
                             Drive/ (DriveContract: routes, limits, GuestApps; DriveItem, DriveListing, DriveConflict ...; MatCloudClient.Drive.cs: the calls
                             of the office apps, DriveConflictException), MatCloudClient (partial: HttpClient of all of it, CloudException)
@@ -123,6 +132,12 @@ src/Apps/MatCloud.Apps.Drive (Razor class library) the module ThixDrive: DriveMo
                             blobs nobody names, temp files); Api/DriveEndpoints (/api/v1/drive, /live/drive: revision, download, uploads); Pages/Drive
                             (Index, Recent, Starred, Trash, Item, Versions; DrivePages.cs: DrivePageModel, DriveListPageModel, DriveUi), Pages/Shared
                             (_DriveMenu, _DriveList, _DriveActions, _DriveTopActions); wwwroot/js/drive.js (selection, uploads, live)
+src/Apps/MatCloud.Apps.Contacts (Razor class library) the module ThixContacts: ContactsModule (UsesGeneralSync, GuestApps mail, ReadingGuestApps calendar,
+                            ContactPhotoStore + ContactPhotoWorker); Business/ ContactBook (list, get, save with the revision the page opened, delete, favourite,
+                            categorize, groups, duplicates, merge, import, export; RequireAsync first), ContactRules (normalize, validate, fold, sort keys, search),
+                            ContactDuplicates (find, merge), VCard, ContactCsv, ContactPhotos, ContactImports (CSV waiting for its mapping), ContactHousekeeping;
+                            Api/ContactsEndpoints (/api/v1/contacts/photos, /live/contacts: revision, suggest, photo); Pages/Contacts (Index, Contact,
+                            Groups, Group, Import, Duplicates, Merge; ContactsPages.cs), Pages/Shared (_ContactsMenu, _ContactsTopActions); wwwroot/js/contacts.js
 src/MatCloud                the host: Program (composition: modules, MatPlatform, MatIdentity, cookie, rate limit, body limit), Modules.cs (the list of
                             modules), Infrastructure (health check, migrations, design-time factory, setup redirect, forced password change, security
                             headers, housekeeping every hour, SeedAdminAsync: MATCLOUD_ADMIN_PASSWORD makes the first administrator), Platform/ (MatCloudPlatform: the MatApiDefinition, state, configure, actions, health;
@@ -150,13 +165,13 @@ docs/                       ARCHITECTURE.md (platform, modules, sync), CONTRACT.
   deleting wins, the same content is merged. Never log clipboard contents, note contents, passwords or tokens.
 - **Modules:** everything of an app lives in its project under `src/Apps` (tables, business, routes, pages, scripts, its menu partial); the platform
   knows no module by name (only `Modules.cs` lists them). Device routes go through `DeviceEndpoints.ForApp`. See docs/MODULES.md.
-  **One device token = one app**: the only way another app reaches a module's data is the module's explicit grant (`GuestApps`, today only the Drive
-  for write/calc/show), checked in `ForApp` and in the business layer (`Actor.MayUse`); never loosen the rule globally.
+  **One device token = one app**: the only way another app reaches a module's data is the module's explicit grant (`GuestApps`: the Drive for
+  write/calc/show, the contacts and the calendar for mail; `ReadingGuestApps`: the contacts for calendar, GET only), checked in `ForApp` and in the business layer (`Actor.MayUse`); never loosen the rule globally.
 - **The contract** (`src/MatCloud.Contract`) changes only backwards-compatibly (new optional fields) or raises `CloudContract.ProtocolVersion`; after
   a change the apps copy it again. A new app id goes into `CloudApps` first.
 - **UI rules (MatUi):** toolbar above lists, actions below, left-aligned, positive to negative, delete with a gap; tabs for areas of one item; colours
   only from the tokens (`app.css` sets only the accents: MatCloud `#0369a1`, ThixClip `#2f6fed`, ThixNote `#c53d30`, ThixDrive `#0f766e`, ThixWrite
-  `#185abd`, ThixCalc `#107c41`, ThixShow `#c43e1c`); icons of the sprite (MatCloud's
+  `#185abd`, ThixCalc `#107c41`, ThixShow `#c43e1c`, ThixContacts `#8764b8`, ThixMail `#0f6cbd`); icons of the sprite (MatCloud's
   own, for example the marks of the editor, in `wwwroot/img/app-icons.svg`); one `h1`; 390 px without sideways scrolling; texts German.
 - **Every app looks like itself:** the pages of a module (`/Clip`, `/Note`) wear the brand of their app (`AppBrands`): logo and word mark above the
   menu with "MatCloud" below it, `<html data-app="thixnote">` (the accent), the tab title "Seite · ThixNote", favicon and manifest. The logos are
