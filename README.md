@@ -42,6 +42,8 @@ installed and connected by Mattiverse – or on its own with `docker compose up`
 | ![A note of ThixNote, its Markdown drawn as a page](docs/images/notes.png) | ![Administration: the apps](docs/images/admin-apps.png) |
 | ![On a phone, dark](docs/images/phone-dark.png) | ![ThixDrive on a phone, dark](docs/images/drive-phone-dark.png) |
 | ![ThixDrive: the files with the toolbar above and the actions below](docs/images/drive.png) | ![ThixDrive: the versions of a document, saved by ThixWrite](docs/images/drive-versions.png) |
+| ![ThixContacts: the contacts with search, filter and sort, the actions below](docs/images/contacts.png) | ![ThixContacts: a contact in its tabs Allgemein, Details, Notizen](docs/images/contacts-edit.png) |
+| ![ThixContacts: the columns of a CSV file matched to fields](docs/images/contacts-import-mapping.png) | ![ThixContacts on a phone, dark](docs/images/contacts-phone-dark.png) |
 
 ## Run it
 
