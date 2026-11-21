@@ -105,7 +105,7 @@ public sealed class ContactsTests
         await ContactBook.SetMembersAsync(test.NewContext(), Browser(anna), group, [second], true);
 
         var sets = await ContactBook.DuplicatesAsync(test.NewContext(), Browser(anna));
-        Assert.Equal([first, second], Assert.Single(sets).Select(c => c.Key).Order());
+        Assert.Equal(new[] { first, second }.Order(), Assert.Single(sets).Select(c => c.Key).Order());
 
         var merged = await ContactBook.MergeAsync(test.NewContext(), Browser(anna), [first, second], new Dictionary<string, string> { ["name"] = second });
         Assert.Equal(first, merged.Value);
