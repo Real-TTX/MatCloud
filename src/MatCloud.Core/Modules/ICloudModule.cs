@@ -47,17 +47,20 @@ public interface ICloudModule
     bool UsesGeneralSync => false;
 
     /// <summary>
-    /// The grant of the module to other apps: the apps (ids of the contract) whose devices may call its device API too and reach its data of THEIR
-    /// account (the Drive lets ThixWrite, ThixCalc and ThixShow open and save documents). Empty (the default): only a device of <see cref="AppId"/>.
+    /// The grant of the module to other apps: the apps (ids of the contract) whose devices reach its data of THEIR account too – through the general
+    /// sync with <c>?app=</c> (ThixMail: contacts and calendar), and through the route groups the module maps with guests
+    /// (<see cref="Api.DeviceEndpoints.ForApp"/>'s <c>guests: true</c>: the Drive's whole API for ThixWrite, ThixCalc and ThixShow; the contact
+    /// pictures). Any other route of the module stays its app's own (403 for a guest). Empty (the default): only a device of <see cref="AppId"/>.
     /// The grant follows the switch of the module: while its app is off, the guests get 403 as well. The business layer checks it with
-    /// <see cref="Business.Actor.MayUse"/>, the routes with <see cref="Api.DeviceEndpoints.ForApp"/>.
+    /// <see cref="Business.Actor.MayUse"/> (and <see cref="Business.Actor.IsOwnApp"/> for what only the app itself does).
     /// </summary>
     IReadOnlyList<string> GuestApps => [];
 
     /// <summary>
     /// The read-only grant: apps whose devices may READ the module's data of their account (the general sync's changes and wait, and the GET routes of
-    /// its device API), never change it (ThixCalendar reads the contacts). Empty by default. Checked with <see cref="Business.Actor.MayRead"/> and in
-    /// <see cref="Api.DeviceEndpoints.ForApp"/> (only GET and HEAD); it follows the switch of the module like <see cref="GuestApps"/>.
+    /// a group mapped with guests), never change it (ThixCalendar reads the contacts and their pictures). Empty by default. Checked with
+    /// <see cref="Business.Actor.MayRead"/> and in <see cref="Api.DeviceEndpoints.ForApp"/> (only GET and HEAD); it follows the switch of the module
+    /// like <see cref="GuestApps"/>.
     /// </summary>
     IReadOnlyList<string> ReadingGuestApps => [];
 

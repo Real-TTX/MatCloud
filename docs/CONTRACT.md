@@ -138,7 +138,9 @@ and `contact-groups` (`ContactGroupData { name, members: [keys], notes }`). Labe
 
 **The grants (1.5.0).** The general sync takes `?app=<id>` (`SyncContract.AppParameter`; `MatCloudClient.GetChangesAsync(app, …)`, `WaitAsync(app, …)`,
 `PushAsync(app, …)`): a device of `mail` reads and writes `contacts` and `calendar` of its account (and uploads pictures), a device of `calendar` reads
-`contacts` (changes, wait, pictures – a push or an upload is 403). Every other combination is 403, also while the target app is switched off.
+`contacts` (changes, wait, pictures – a push or an upload is 403). Every other combination is 403, also while the target app is switched off. The
+grant covers the general sync and the picture routes only: the routes of ThixCalendar's own (`Connections`, `Disconnect`, `SyncNow`, `EventChange`)
+stay for devices of `calendar` – a device of `mail` gets 403 there.
 
 ## ThixCalendar (the module `calendar`, contract 1.3.0)
 

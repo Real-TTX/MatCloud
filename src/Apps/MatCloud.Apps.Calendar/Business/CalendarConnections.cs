@@ -378,7 +378,7 @@ public static class CalendarConnections
     /// <summary>Only the account itself (a device of ThixCalendar or its browser).</summary>
     private static void Require(Actor actor)
     {
-        if (!actor.MayUse(CalendarItems.App))
+        if (!actor.IsOwnApp(CalendarItems.App))
         {
             throw new NotAllowedException("Dieses Gerät darf diese Daten nicht lesen.");
         }

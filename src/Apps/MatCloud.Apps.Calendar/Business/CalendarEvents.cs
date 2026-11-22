@@ -22,7 +22,7 @@ public static class CalendarEvents
     public static async Task<Outcome<CalendarEventChangeResult>> ChangeCloudAsync(AppDbContext db, CalendarKeys keys, Actor actor, CalendarEventChange? change,
         CancellationToken ct)
     {
-        if (!actor.MayUse(CalendarItems.App))
+        if (!actor.IsOwnApp(CalendarItems.App))
         {
             throw new NotAllowedException("Dieses Gerät darf diese Daten nicht lesen.");
         }

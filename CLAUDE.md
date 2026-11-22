@@ -29,7 +29,9 @@ devices in here and keeps its data the same on every PC and Mac of an account. T
   `/data/contacts/photos/<user>/` (`ContactPhotoStore`, routes `/api/v1/contacts/photos`). vCard 2.1/3.0/4.0 and CSV by own code (`VCard`, `ContactCsv`;
   ThixOffice.Pim implements the same rules, held together by the shared fixtures `tests/MatCloud.Tests/Fixtures/Contacts`). **Grants:** `mail` reads and
   writes the contacts (`GuestApps`) and the calendar (`CalendarModule.GuestApps`) of its account; `calendar` only reads the contacts
-  (`ICloudModule.ReadingGuestApps`, `Actor.MayRead`). A device names another app's general sync with `?app=<id>` (`SyncContract.AppParameter`). Pages
+  (`ICloudModule.ReadingGuestApps`, `Actor.MayRead`). A device names another app's general sync with `?app=<id>` (`SyncContract.AppParameter`). The
+  grant reaches ONLY the general sync and the contact pictures (`ForApp(…, guests: true)`: GET for `calendar`, GET/POST for `mail`); ThixCalendar's own
+  routes (handover, disconnect, sync now, event change) are 403 for `mail` (`Actor.IsOwnApp` in the business layer too). Pages
   `/Contacts` (list: search, filter Favoriten/Gruppe/Kategorie, sort Vorname/Nachname/Firma, letters, selection actions), `/Contacts/Contact` (tabs
   Allgemein | Details | Notizen), `/Contacts/Groups`, `/Contacts/Group`, `/Contacts/Import` (vCard at once, CSV with column mapping), `/Contacts/Duplicates`,
   `/Contacts/Merge`.
@@ -166,7 +168,10 @@ docs/                       ARCHITECTURE.md (platform, modules, sync), CONTRACT.
 - **Modules:** everything of an app lives in its project under `src/Apps` (tables, business, routes, pages, scripts, its menu partial); the platform
   knows no module by name (only `Modules.cs` lists them). Device routes go through `DeviceEndpoints.ForApp`. See docs/MODULES.md.
   **One device token = one app**: the only way another app reaches a module's data is the module's explicit grant (`GuestApps`: the Drive for
-  write/calc/show, the contacts and the calendar for mail; `ReadingGuestApps`: the contacts for calendar, GET only), checked in `ForApp` and in the business layer (`Actor.MayUse`); never loosen the rule globally.
+  write/calc/show, the contacts and the calendar for mail; `ReadingGuestApps`: the contacts for calendar, GET only), checked in the general sync, in
+  `ForApp` and in the business layer (`Actor.MayUse`); never loosen the rule globally. A grant reaches a module's own routes only where the group is
+  mapped with `ForApp(…, guests: true)` (the Drive's API, the contact pictures) – everything else is 403 for a guest; what only the app itself may do
+  checks `Actor.IsOwnApp`.
 - **The contract** (`src/MatCloud.Contract`) changes only backwards-compatibly (new optional fields) or raises `CloudContract.ProtocolVersion`; after
   a change the apps copy it again. A new app id goes into `CloudApps` first.
 - **UI rules (MatUi):** toolbar above lists, actions below, left-aligned, positive to negative, delete with a gap; tabs for areas of one item; colours

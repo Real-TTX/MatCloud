@@ -27,7 +27,7 @@ public static class DriveEndpoints
 
     private static void MapDevices(IEndpointRouteBuilder app)
     {
-        var device = ForApp(app, CloudApps.Drive);
+        var device = ForApp(app, CloudApps.Drive, guests: true);
 
         device.MapGet(DriveContract.Items, async (HttpContext http, AppDbContext db, long? parentId, string? sort, bool? descending, int? offset, int? limit) =>
             Answer(await DriveItems.ListAsync(db, ActorOf(http), parentId, Query(sort, descending, offset, limit), http.RequestAborted)));

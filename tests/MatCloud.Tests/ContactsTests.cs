@@ -202,6 +202,58 @@ public sealed class ContactsTests
     }
 
     [DbFact]
+    public async Task A_guest_reaches_the_general_sync_and_the_contact_pictures_never_a_modules_own_routes()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var anna = await test.AddUserAsync("anna", password: "anna-password");
+        await using var app = TestApp.Create(test);
+        var ct = CancellationToken.None;
+        using var mail = await ClientAsync(app, CloudApps.Mail);
+        using var calendar = await ClientAsync(app, CloudApps.Calendar);
+        using var contacts = await ClientAsync(app, CloudApps.Contacts);
+
+        // ThixMail on the calendar: the general sync both ways ...
+        var calendarEvent = new SyncItemDto { Collection = CalendarContract.Events, Key = "e1", Data = "{}", UpdatedAt = DateTimeOffset.UtcNow };
+        Assert.True((await mail.PushAsync(CloudApps.Calendar, new SyncPushRequest([calendarEvent]), ct)).Results.Single().Applied);
+        Assert.Equal("e1", (await mail.GetChangesAsync(CloudApps.Calendar, 0, 100, ct)).Items.Single().Key);
+
+        // ... but none of ThixCalendar's own routes (sign-in handover, disconnect, sync now, event change); neither for ThixContacts
+        foreach (var guest in new[] { mail, contacts })
+        {
+            var calls = new Func<Task>[]
+            {
+                () => guest.HandOverCalendarAsync(new CalendarHandover("acc1", CalendarAccountKind.Google, "anna@x.de", "refresh"), ct),
+                () => guest.DisconnectCalendarAsync("acc1", ct),
+                () => guest.SyncCalendarNowAsync("acc1", ct),
+                () => guest.ChangeCalendarEventAsync(new CalendarEventChange("e1", null, Delete: true), ct),
+            };
+            foreach (var call in calls)
+            {
+                Assert.True((await Assert.ThrowsAsync<CloudException>(call)).IsForbidden);
+            }
+        }
+
+        await calendar.SyncCalendarNowAsync("acc1", ct); // the app itself still may
+
+        // the business layer says the same: the grant does not reach what only ThixCalendar does
+        var mailDevice = Device(anna, CloudApps.Mail);
+        await Assert.ThrowsAsync<NotAllowedException>(() => MatCloud.Apps.Calendar.Business.CalendarConnections.SyncNowAsync(test.NewContext(), mailDevice, "acc1", ct));
+        await Assert.ThrowsAsync<NotAllowedException>(() => MatCloud.Apps.Calendar.Business.CalendarConnections.DisconnectAsync(test.NewContext(), mailDevice, "acc1", ct));
+
+        // ThixCalendar reads the contacts, writes neither them nor their pictures; ThixMail writes both
+        var contact = new SyncItemDto { Collection = ContactsContract.Contacts, Key = "k1", Data = ContactsContract.Serialize(new ContactData { GivenName = "Anna" }), UpdatedAt = DateTimeOffset.UtcNow };
+        Assert.True((await mail.PushAsync(CloudApps.Contacts, new SyncPushRequest([contact]), ct)).Results.Single().Applied);
+        Assert.Equal("k1", (await calendar.GetChangesAsync(CloudApps.Contacts, 0, 100, ct)).Items.Single().Key);
+        Assert.True((await Assert.ThrowsAsync<CloudException>(() => calendar.PushAsync(CloudApps.Contacts, new SyncPushRequest([contact with { Key = "k2" }]), ct))).IsForbidden);
+
+        var photo = Samples.Picture(12, 12);
+        var info = await mail.UploadContactPhotoAsync(photo, "image/png", ct);
+        Assert.Equal(photo, await calendar.DownloadContactPhotoAsync(info.Id, ct));
+        Assert.Equal(photo, await mail.DownloadContactPhotoAsync(info.Id, ct));
+        Assert.True((await Assert.ThrowsAsync<CloudException>(() => calendar.UploadContactPhotoAsync(photo, "image/png", ct))).IsForbidden);
+    }
+
+    [DbFact]
     public async Task The_pages_list_edit_import_and_export_contacts()
     {
         await using var test = await TestDatabase.CreateAsync();

@@ -71,11 +71,14 @@ public static class DeviceEndpoints
     }
 
     /// <summary>
-    /// The group for the device routes of a module: the protocol header, a valid device token, a device of exactly this app – or of an app the module
-    /// lets in (<see cref="ICloudModule.GuestApps"/>) – and the app switched on (else 401 / 403 with a German message).
+    /// The group for the device routes of a module: the protocol header, a valid device token, a device of exactly this app and the app switched on (else
+    /// 401 / 403 with a German message). The module's grant (<see cref="ICloudModule.GuestApps"/>, <see cref="ICloudModule.ReadingGuestApps"/>) reaches
+    /// these routes ONLY when <paramref name="guests"/> is true – a deliberate choice per group: the Drive's whole API (its grant is its device API), the
+    /// pictures of the contacts (GET for reading guests, every method for full guests). Everything else a guest reaches goes through the general sync
+    /// with <c>?app=</c>; a module's own routes (ThixCalendar's sign-in handover, sync now, event change) answer 403 to a guest.
     /// </summary>
-    public static RouteGroupBuilder ForApp(IEndpointRouteBuilder app, string appId)
-        => Base(app).MapGroup(string.Empty).AddEndpointFilter(DeviceAsync).AddEndpointFilter((context, next) => RequireAppAsync(context, next, appId));
+    public static RouteGroupBuilder ForApp(IEndpointRouteBuilder app, string appId, bool guests = false)
+        => Base(app).MapGroup(string.Empty).AddEndpointFilter(DeviceAsync).AddEndpointFilter((context, next) => RequireAppAsync(context, next, appId, guests));
 
     public static IResult Error(int status, string message, string? field = null) => Results.Json(new ApiError(message, field), CloudContract.Json, statusCode: status);
 
@@ -242,10 +245,10 @@ public static class DeviceEndpoints
     }
 
     /// <summary>
-    /// The routes of a module are for the devices of its app, and for the devices of the apps it lets in while the module's app is on (the filter of the
-    /// device checked the device's own app already).
+    /// The routes of a module are for the devices of its app, and – in a group mapped with guests – for the devices of the apps it lets in while the
+    /// module's app is on (the filter of the device checked the device's own app already).
     /// </summary>
-    private static async ValueTask<object?> RequireAppAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next, string appId)
+    private static async ValueTask<object?> RequireAppAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next, string appId, bool guests)
     {
         var http = context.HttpContext;
         var device = (DeviceIdentity)http.Items[DeviceItem]!;
@@ -255,7 +258,7 @@ public static class DeviceEndpoints
         }
 
         var reading = HttpMethods.IsGet(http.Request.Method) || HttpMethods.IsHead(http.Request.Method);
-        if (!(reading ? CloudModules.IsReadingGuest(appId, device.App) : CloudModules.IsGuest(appId, device.App)))
+        if (!guests || !(reading ? CloudModules.IsReadingGuest(appId, device.App) : CloudModules.IsGuest(appId, device.App)))
         {
             return Error(StatusCodes.Status403Forbidden, $"Diese Daten gehören zu {CloudApps.NameOf(appId)}; dieses Gerät ist für {CloudApps.NameOf(device.App)} angemeldet.");
         }

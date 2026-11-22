@@ -9,7 +9,8 @@ using MatCloud.Core.Web;
 namespace MatCloud.Apps.Contacts.Api;
 
 /// <summary>
-/// The routes of the module. For the devices (<see cref="DeviceEndpoints.ForApp"/>: ThixContacts, ThixMail, and ThixCalendar for the GET): the pictures of
+/// The routes of the module. For the devices (<see cref="DeviceEndpoints.ForApp"/> with guests – the one group of the module its grant reaches besides
+/// the general sync: ThixContacts, ThixMail, and ThixCalendar for the GET): the pictures of
 /// contacts, <c>POST /api/v1/contacts/photos</c> and <c>GET /api/v1/contacts/photos/{id}</c> (the contacts themselves travel in the general sync). For the
 /// pages (the cookie of the browser, 401 without a session): the long poll of the live list and the pictures.
 /// </summary>
@@ -17,7 +18,7 @@ public static class ContactsEndpoints
 {
     public static void Map(IEndpointRouteBuilder app)
     {
-        var api = DeviceEndpoints.ForApp(app, CloudApps.Contacts);
+        var api = DeviceEndpoints.ForApp(app, CloudApps.Contacts, guests: true);
         api.MapPost(ContactsContract.Photos, async (HttpContext http, AppDbContext db, ContactPhotoStore store) =>
         {
             var bytes = await DeviceEndpoints.ReadBodyAsync(http.Request, ContactsContract.MaxPhotoBytes, http.RequestAborted);

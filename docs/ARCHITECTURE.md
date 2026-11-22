@@ -50,6 +50,9 @@ to other apps (below).
   lets a guest device through only while the module's app is on (switching the Drive off stops ThixWrite there too, 403), and the business layer asks
   `Actor.MayUse(CloudApps.Drive)`, which honours the grant (`DriveAccess.RequireAsync`, the first line of every function). A guest reaches exactly the
   same data as a device of the Drive: the Drive of its own account.
+- A grant reaches a module's own routes only where the module maps the group with `ForApp(…, guests: true)` (the Drive's API; the contact pictures:
+  GET for reading guests, POST for full guests). Otherwise a guest reaches the data only through the general sync with `?app=` (ThixMail: contacts and
+  calendar); ThixCalendar's own routes (handover, disconnect, sync now, event change) answer 403 to it, and the business layer checks `Actor.IsOwnApp`.
 - **Data**: `DriveSpace` is the drive of one account (`Kind` Personal; Shared is reserved for team drives, shares and links in v2), `DriveNode` a file
   or folder with a materialized path (`/12/40/41/`: the folders above and everything below with one query), `NameKey` (the name in lower case; a unique
   index per folder outside the trash, `NULLS NOT DISTINCT` for the top), `Category` (type filter), the current version (`CurrentVersionId` = the ETag,

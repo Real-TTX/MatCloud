@@ -20,6 +20,12 @@ public sealed record Actor(long UserId, bool IsAdmin, long? DeviceId = null, str
     public bool MayUse(string app) => DeviceId is null || App == app || Modules.CloudModules.IsGuest(app, App);
 
     /// <summary>
+    /// The browser of the account or a device of exactly <paramref name="app"/> – the grants do not count. For what only the app itself does (ThixCalendar
+    /// hands its sign-ins over or changes an event at the provider); a guest reaches such data only through the general sync.
+    /// </summary>
+    public bool IsOwnApp(string app) => DeviceId is null || App == app;
+
+    /// <summary>
     /// Whether this actor may READ the data of <paramref name="app"/>: everyone who may use it, and the devices of an app the module lets read
     /// (<see cref="Modules.ICloudModule.ReadingGuestApps"/>: ThixCalendar reads the contacts).
     /// </summary>
