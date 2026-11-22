@@ -4,7 +4,7 @@ Guidance for working in this repository. Keep it in sync with the code: update i
 
 ## What MatCloud is
 
-**The cloud of the Thix apps** (the desktop apps for Windows and macOS: ThixClip, ThixNote, ThixCalendar, ThixWrite, ThixCalc, ThixShow, ThixTunnel, ThixLauncher, ThixFred). Every app signs its
+**The cloud of the Thix apps** (the desktop apps for Windows and macOS: ThixClip, ThixNote, ThixCalendar, ThixWrite, ThixCalc, ThixShow, ThixTunnel, ThixLauncher, ThixFred, ThixSpace). Every app signs its
 devices in here and keeps its data the same on every PC and Mac of an account. Two kinds of apps:
 
 - **Apps with a module** (`src/Apps/*`, an `ICloudModule`): their own tables, their own API for their devices and their own pages in the browser.
@@ -81,7 +81,7 @@ plain JavaScript, Docker-first.
 ```
 src/MatCloud.Contract       THE contract with the apps (copied into them, no dependencies): CloudContract (protocol 1, header X-MatCloud-Protocol, routes of
                             the sign-in and the account, JSON options), CloudApps (the known app ids: clip, note, calendar, drive, write, calc, show, tunnel,
-                            launcher, fred, contacts, mail), Devices.cs (password sign-in, sign-in in the browser: DeviceLinkRequest/Start/PollResponse, AccountInfo), Sync.cs
+                            launcher, fred, contacts, mail, space), Devices.cs (password sign-in, sign-in in the browser: DeviceLinkRequest/Start/PollResponse, AccountInfo), Sync.cs
                             (the general sync: SyncContract, SyncItemDto, SyncChangeSet, SyncPushRequest/Result), Clip/ (ClipContract, ClipDto ..., ClearRange),
                             Drive/ (DriveContract: routes, limits, GuestApps; DriveItem, DriveListing, DriveConflict ...; MatCloudClient.Drive.cs: the calls
                             of the office apps, DriveConflictException), MatCloudClient (partial: HttpClient of all of it, CloudException)

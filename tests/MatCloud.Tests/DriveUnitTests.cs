@@ -87,7 +87,7 @@ public sealed class DriveUnitTests
     [Fact]
     public void Every_new_app_has_its_brand()
     {
-        foreach (var app in new[] { CloudApps.Drive, CloudApps.Write, CloudApps.Calc, CloudApps.Show })
+        foreach (var app in new[] { CloudApps.Drive, CloudApps.Write, CloudApps.Calc, CloudApps.Show, CloudApps.Space })
         {
             var brand = AppBrands.Of(app);
             Assert.False(brand.IsCloud);

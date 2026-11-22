@@ -19,6 +19,8 @@
 /* ThixContacts violet (white text 4.6:1), ThixMail blue (5.4:1). */
 [data-app="thixcontacts"] { --mat-app-accent: #8764b8; }
 [data-app="thixmail"] { --mat-app-accent: #0f6cbd; }
+/* ThixSpace teal (white text 4.8:1). */
+[data-app="thixspace"] { --mat-app-accent: #0e8074; }
 
 /* ---- Shell ------------------------------------------------------------------------------------------------------- */
 .mc-brand { display: inline-flex; align-items: center; gap: var(--mat-space-2); color: inherit; text-decoration: none; }

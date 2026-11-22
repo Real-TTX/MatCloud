@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    ThixSpace app icon, full detail (48 px and larger): a treemap - the map of what fills a drive - on a teal tile.
+    The big white block is the largest folder, the smaller ones fade; the yellow block is the one that grew since
+    the last analysis. Geometry on a 256 grid; tools/render-icons.js renders the PNG, ICO and ICNS files from it.
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#3DD9BE"/>
+      <stop offset="1" stop-color="#0E8074"/>
+    </linearGradient>
+    <linearGradient id="block" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E3FBF6"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)"/>
+  <rect x="60" y="60" width="72" height="136" rx="14" fill="url(#block)"/>
+  <rect x="140" y="60" width="56" height="76" rx="12" fill="#FFFFFF" fill-opacity="0.78"/>
+  <rect x="140" y="144" width="24" height="52" rx="8" fill="#FFFFFF" fill-opacity="0.55"/>
+  <rect x="172" y="144" width="24" height="22" rx="6" fill="#FFC857"/>
+  <rect x="172" y="174" width="24" height="22" rx="6" fill="#FFFFFF" fill-opacity="0.4"/>
+</svg>

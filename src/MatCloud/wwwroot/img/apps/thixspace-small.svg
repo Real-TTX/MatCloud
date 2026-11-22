@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256">
+  <!-- ThixSpace favicon / small icon (16-32 px): full-bleed tile, three thick blocks of the treemap, the grown one yellow. -->
+  <rect x="0" y="0" width="256" height="256" rx="60" fill="#0E8074"/>
+  <rect x="40" y="40" width="88" height="176" rx="18" fill="#FFFFFF"/>
+  <rect x="144" y="40" width="72" height="88" rx="16" fill="#FFFFFF" fill-opacity="0.8"/>
+  <rect x="144" y="144" width="72" height="72" rx="16" fill="#FFC857"/>
+</svg>
