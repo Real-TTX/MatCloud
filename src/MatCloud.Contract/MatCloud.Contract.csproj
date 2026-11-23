@@ -8,7 +8,7 @@
   -->
   <PropertyGroup>
     <RootNamespace>MatCloud.Contract</RootNamespace>
-    <MatCloudContractVersion>1.6.0</MatCloudContractVersion>
+    <MatCloudContractVersion>1.7.0</MatCloudContractVersion>
   </PropertyGroup>
 
 </Project>

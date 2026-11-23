@@ -12,7 +12,7 @@ namespace MatCloud.Apps.Drive;
 
 /// <summary>
 /// ThixDrive in MatCloud: the files and folders of an account – in the browser (<c>/Drive</c>) and for the devices of ThixDrive and of the office
-/// apps ThixWrite, ThixCalc and ThixShow (<see cref="GuestApps"/>: they open and save their documents here). Tables DriveSpace, DriveNode,
+/// apps ThixWrite, ThixCalc and ThixShow (<see cref="GuestApps"/>: they open and save their documents here) and ThixSync (a source or target of its sync jobs). Tables DriveSpace, DriveNode,
 /// DriveNodeVersion, DriveBlob, DriveStar, DriveVisit, DriveUpload and the sequence DriveRevision; the bytes in the data volume (<see cref="DriveStore"/>);
 /// the device API <c>/api/v1/drive</c>; the pages <c>/Drive</c> with the live list.
 /// </summary>

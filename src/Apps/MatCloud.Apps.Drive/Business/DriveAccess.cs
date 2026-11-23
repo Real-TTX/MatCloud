@@ -53,7 +53,7 @@ public sealed record DriveOutcome<T>(T? Value, DriveFailure Failure = DriveFailu
 }
 
 /// <summary>
-/// Who may reach the Drive, and whose items an actor sees. The browser of the account and the devices of ThixDrive, ThixWrite, ThixCalc and ThixShow
+/// Who may reach the Drive, and whose items an actor sees. The browser of the account and the devices of ThixDrive, ThixWrite, ThixCalc, ThixShow and ThixSync
 /// (the grant of the module, <see cref="DriveContract.GuestApps"/>) reach the Drive of THEIR account; a device of any other app gets
 /// <see cref="NotAllowedException"/> (403), and so does everybody while an administrator has switched the Drive off. An administrator has no access to
 /// the files of others: an item of another account does not exist for the actor (404). Every function of the business layer starts here.
@@ -65,7 +65,7 @@ public static class DriveAccess
     {
         if (!actor.MayUse(CloudApps.Drive))
         {
-            throw new NotAllowedException($"Die Ablage ist für ThixDrive, ThixWrite, ThixCalc und ThixShow; dieses Gerät ist für {CloudApps.NameOf(actor.App)} angemeldet.");
+            throw new NotAllowedException($"Die Ablage ist für ThixDrive, ThixWrite, ThixCalc, ThixShow und ThixSync; dieses Gerät ist für {CloudApps.NameOf(actor.App)} angemeldet.");
         }
 
         if (!await AppService.IsEnabledAsync(db, CloudApps.Drive, ct))

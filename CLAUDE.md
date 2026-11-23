@@ -4,7 +4,7 @@ Guidance for working in this repository. Keep it in sync with the code: update i
 
 ## What MatCloud is
 
-**The cloud of the Thix apps** (the desktop apps for Windows and macOS: ThixClip, ThixNote, ThixCalendar, ThixWrite, ThixCalc, ThixShow, ThixTunnel, ThixLauncher, ThixFred, ThixSpace). Every app signs its
+**The cloud of the Thix apps** (the desktop apps for Windows and macOS: ThixClip, ThixNote, ThixCalendar, ThixWrite, ThixCalc, ThixShow, ThixTunnel, ThixLauncher, ThixFred, ThixSpace, ThixSync). Every app signs its
 devices in here and keeps its data the same on every PC and Mac of an account. Two kinds of apps:
 
 - **Apps with a module** (`src/Apps/*`, an `ICloudModule`): their own tables, their own API for their devices and their own pages in the browser.
@@ -21,7 +21,7 @@ devices in here and keeps its data the same on every PC and Mac of an account. T
   with a code, Google through the web client the administrator enters, ICS), `/Calendar/Settings`.
 - The fourth is **ThixDrive** (`MatCloud.Apps.Drive`, app `drive`): the files of an account (ported from MatDrive, without MatOffice): a personal drive per
   account, folders and files with a materialized path, versions, trash, stars, recent, quota; the bytes once per content in `/data/drive/blobs`; uploads
-  in pieces; every new version only with `If-Match`. Its device API `/api/v1/drive` is **granted** to ThixWrite, ThixCalc and ThixShow
+  in pieces; every new version only with `If-Match`. Its device API `/api/v1/drive` is **granted** to ThixWrite, ThixCalc, ThixShow and ThixSync (a source or target of its sync jobs)
   (`ICloudModule.GuestApps` = `DriveContract.GuestApps`): their devices reach the Drive of their account; nothing else is loosened. Pages `/Drive`
   (folder or search, list or tiles), `/Drive/Recent`, `/Drive/Starred`, `/Drive/Trash`, `/Drive/Item` (Allgemein), `/Drive/Item/Versions`.
 - The fifth is **ThixContacts** (`MatCloud.Apps.Contacts`, app `contacts`, contract 1.5.0): a web client of the general sync like ThixNote (collections
@@ -81,7 +81,7 @@ plain JavaScript, Docker-first.
 ```
 src/MatCloud.Contract       THE contract with the apps (copied into them, no dependencies): CloudContract (protocol 1, header X-MatCloud-Protocol, routes of
                             the sign-in and the account, JSON options), CloudApps (the known app ids: clip, note, calendar, drive, write, calc, show, tunnel,
-                            launcher, fred, contacts, mail, space), Devices.cs (password sign-in, sign-in in the browser: DeviceLinkRequest/Start/PollResponse, AccountInfo), Sync.cs
+                            launcher, fred, contacts, mail, space, sync), Devices.cs (password sign-in, sign-in in the browser: DeviceLinkRequest/Start/PollResponse, AccountInfo), Sync.cs
                             (the general sync: SyncContract, SyncItemDto, SyncChangeSet, SyncPushRequest/Result), Clip/ (ClipContract, ClipDto ..., ClearRange),
                             Drive/ (DriveContract: routes, limits, GuestApps; DriveItem, DriveListing, DriveConflict ...; MatCloudClient.Drive.cs: the calls
                             of the office apps, DriveConflictException), MatCloudClient (partial: HttpClient of all of it, CloudException)
@@ -124,7 +124,7 @@ src/Apps/MatCloud.Apps.Calendar (Razor class library) the module ThixCalendar: C
                             Events, Event, Accounts, Connect, Google, Settings); wwwroot/js calendar-schedule.js (loads, colours and links the
                             schedule), calendar-live.js (with data-live-event it only tells the page), calendar-colors.js (the colours: no style
                             attributes under the CSP), calendar-connect.js, calendar-accounts.js
-src/Apps/MatCloud.Apps.Drive (Razor class library) the module ThixDrive: DriveModule (GuestApps write/calc/show, DriveStore + DriveWorker as services);
+src/Apps/MatCloud.Apps.Drive (Razor class library) the module ThixDrive: DriveModule (GuestApps write/calc/show/sync, DriveStore + DriveWorker as services);
                             Data/DriveModel (DriveSpace, DriveNode, DriveNodeVersion, DriveBlob, DriveStar, DriveVisit, DriveUpload, sequence DriveRevision);
                             Business/ DriveAccess (who reaches the Drive: RequireAsync first in every function; DriveOutcome/DriveFailure), DriveItems (lists,
                             the tree: folder, rename, move, copy, trash, restore, delete, star; everything under Revisions.ChangeAsync), DriveFiles (new
@@ -168,7 +168,7 @@ docs/                       ARCHITECTURE.md (platform, modules, sync), CONTRACT.
 - **Modules:** everything of an app lives in its project under `src/Apps` (tables, business, routes, pages, scripts, its menu partial); the platform
   knows no module by name (only `Modules.cs` lists them). Device routes go through `DeviceEndpoints.ForApp`. See docs/MODULES.md.
   **One device token = one app**: the only way another app reaches a module's data is the module's explicit grant (`GuestApps`: the Drive for
-  write/calc/show, the contacts and the calendar for mail; `ReadingGuestApps`: the contacts for calendar, GET only), checked in the general sync, in
+  write/calc/show/sync, the contacts and the calendar for mail; `ReadingGuestApps`: the contacts for calendar, GET only), checked in the general sync, in
   `ForApp` and in the business layer (`Actor.MayUse`); never loosen the rule globally. A grant reaches a module's own routes only where the group is
   mapped with `ForApp(…, guests: true)` (the Drive's API, the contact pictures) – everything else is 403 for a guest; what only the app itself may do
   checks `Actor.IsOwnApp`.
