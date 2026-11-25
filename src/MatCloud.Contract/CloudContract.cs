@@ -105,6 +105,9 @@ public static class CloudApps
     /// <summary>ThixSync (file sync and backup): its sync jobs and connections in the general sync; reaches the Drive of its account as a source or target (<see cref="Drive.DriveContract.GuestApps"/>).</summary>
     public const string Sync = "sync";
 
+    /// <summary>ThixGate (remote manager: RDP, VNC, SSH): its folders, connections and saved credentials (encrypted on the device) in the general sync.</summary>
+    public const string Gate = "gate";
+
     public static readonly IReadOnlyList<CloudApp> All =
     [
         new(Clip, "ThixClip", "Der Zwischenablage-Verlauf auf allen Geräten"),
@@ -121,6 +124,7 @@ public static class CloudApps
         new(Mail, "ThixMail", "E-Mail: Konten-Einstellungen, Kontakte und Kalender aus der Cloud"),
         new(Space, "ThixSpace", "Speicheranalyse: Quellen und Analysen auf allen Geräten"),
         new(Sync, "ThixSync", "Synchronisation und Backup: Aufträge und Verbindungen auf allen Geräten, ThixDrive als Ziel"),
+        new(Gate, "ThixGate", "Remote-Verbindungen (RDP, VNC, SSH): Ordner und Verbindungen auf allen Geräten"),
     ];
 
     public static CloudApp? Find(string? id) => All.FirstOrDefault(a => string.Equals(a.Id, id, StringComparison.Ordinal));
