@@ -49,6 +49,7 @@ public static class AppBrands
         [CloudApps.Space] = new(CloudApps.Space, "ThixSpace", "Thix", "thixspace", "/img/apps/thixspace.svg", "/img/apps/thixspace-small.svg", "/img/apps/thixspace-256.png", "/img/apps/thixspace-512.png"),
         [CloudApps.Sync] = new(CloudApps.Sync, "ThixSync", "Thix", "thixsync", "/img/apps/thixsync.svg", "/img/apps/thixsync-small.svg", "/img/apps/thixsync-256.png", "/img/apps/thixsync-512.png"),
         [CloudApps.Gate] = new(CloudApps.Gate, "ThixGate", "Thix", "thixgate", "/img/apps/thixgate.svg", "/img/apps/thixgate-small.svg", "/img/apps/thixgate-256.png", "/img/apps/thixgate-512.png"),
+        [CloudApps.Pdf] = new(CloudApps.Pdf, "ThixPdf", "Thix", "thixpdf", "/img/apps/thixpdf.svg", "/img/apps/thixpdf-small.svg", "/img/apps/thixpdf-256.png", "/img/apps/thixpdf-512.png"),
     };
 
     /// <summary>The brand of an app of the contract (MatCloud's own for an app it does not know).</summary>

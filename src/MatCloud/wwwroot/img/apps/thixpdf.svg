@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    ThixPdf app icon, full detail (48 px and larger): a page with a folded corner - a line of text, one line highlighted
+    in the accent tint, and a signature flourish on its signature line: read, mark up, sign. On a tile in ThixPdf's
+    crimson (#BE123C). Geometry on a 256 grid; tools/render-icons.js renders the PNG, ICO and ICNS files from it.
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#F2557A"/>
+      <stop offset="1" stop-color="#A10E33"/>
+    </linearGradient>
+    <linearGradient id="sheet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FDEDF1"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)"/>
+  <!-- the page, its folded corner -->
+  <path d="M78 42h74l40 40v118a14 14 0 0 1-14 14H78a14 14 0 0 1-14-14V56a14 14 0 0 1 14-14z" fill="url(#sheet)"/>
+  <path d="M152 42v28a12 12 0 0 0 12 12h28z" fill="#F5B3C3"/>
+  <!-- a line of text, and the highlighted one -->
+  <line x1="84" y1="91" x2="144" y2="91" stroke="#EBC6D0" stroke-width="10" stroke-linecap="round"/>
+  <rect x="74" y="103" width="108" height="25" rx="8" fill="#FFB8CA"/>
+  <line x1="85" y1="115.5" x2="171" y2="115.5" stroke="#BE123C" stroke-width="10" stroke-linecap="round"/>
+  <!-- the signature on its line -->
+  <path d="M84 186C104 180 126 160 124 146C122 132 100 136 100 156C100 176 114 188 134 180C148 174 156 166 176 162" fill="none" stroke="#BE123C" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="84" y1="198" x2="172" y2="198" stroke="#EBC6D0" stroke-width="5" stroke-linecap="round"/>
+</svg>

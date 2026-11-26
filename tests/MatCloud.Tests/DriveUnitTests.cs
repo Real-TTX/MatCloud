@@ -69,13 +69,13 @@ public sealed class DriveUnitTests
     }
 
     [Fact]
-    public void The_grant_lets_exactly_the_office_apps_and_ThixSync_into_the_Drive_and_nowhere_else()
+    public void The_grant_lets_exactly_the_office_apps_ThixSync_and_ThixPdf_into_the_Drive_and_nowhere_else()
     {
-        Assert.Equal([CloudApps.Write, CloudApps.Calc, CloudApps.Show, CloudApps.Sync], DriveContract.GuestApps);
+        Assert.Equal([CloudApps.Write, CloudApps.Calc, CloudApps.Show, CloudApps.Sync, CloudApps.Pdf], DriveContract.GuestApps);
         foreach (var app in CloudApps.All.Select(a => a.Id))
         {
             var device = new Actor(1, false, 2, "PC", app);
-            Assert.Equal(app is CloudApps.Drive or CloudApps.Write or CloudApps.Calc or CloudApps.Show or CloudApps.Sync, device.MayUse(CloudApps.Drive));
+            Assert.Equal(app is CloudApps.Drive or CloudApps.Write or CloudApps.Calc or CloudApps.Show or CloudApps.Sync or CloudApps.Pdf, device.MayUse(CloudApps.Drive));
             Assert.Equal(app == CloudApps.Clip, device.MayUse(CloudApps.Clip));
             Assert.Equal(app == CloudApps.Note, device.MayUse(CloudApps.Note));
         }
@@ -87,7 +87,7 @@ public sealed class DriveUnitTests
     [Fact]
     public void Every_new_app_has_its_brand()
     {
-        foreach (var app in new[] { CloudApps.Drive, CloudApps.Write, CloudApps.Calc, CloudApps.Show, CloudApps.Space, CloudApps.Sync })
+        foreach (var app in new[] { CloudApps.Drive, CloudApps.Write, CloudApps.Calc, CloudApps.Show, CloudApps.Space, CloudApps.Sync, CloudApps.Pdf })
         {
             var brand = AppBrands.Of(app);
             Assert.False(brand.IsCloud);

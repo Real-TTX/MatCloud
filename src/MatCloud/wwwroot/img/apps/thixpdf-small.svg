@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256">
+  <!--
+    ThixPdf small icon (16-32 px): full-bleed tile in ThixPdf's crimson, a large white page with its folded corner and the
+    signature as one bold stroke. No lines of text, no highlight, no gradients: they would turn to mush at this size.
+  -->
+  <rect x="0" y="0" width="256" height="256" rx="60" fill="#C8173F"/>
+  <path d="M62 26h92l54 54v134a16 16 0 0 1-16 16H62a16 16 0 0 1-16-16V42a16 16 0 0 1 16-16z" fill="#FFFFFF"/>
+  <path d="M154 26v42a12 12 0 0 0 12 12h42z" fill="#F5A3B7"/>
+  <path d="M70 196C100 188 140 156 136 128C132 102 92 108 96 142C100 176 126 194 156 180C172 172 180 162 190 158" fill="none" stroke="#BE123C" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

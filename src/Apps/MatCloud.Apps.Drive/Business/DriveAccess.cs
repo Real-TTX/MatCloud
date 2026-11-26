@@ -65,7 +65,7 @@ public static class DriveAccess
     {
         if (!actor.MayUse(CloudApps.Drive))
         {
-            throw new NotAllowedException($"Die Ablage ist für ThixDrive, ThixWrite, ThixCalc, ThixShow und ThixSync; dieses Gerät ist für {CloudApps.NameOf(actor.App)} angemeldet.");
+            throw new NotAllowedException($"Die Ablage ist für ThixDrive, ThixWrite, ThixCalc, ThixShow, ThixSync und ThixPdf; dieses Gerät ist für {CloudApps.NameOf(actor.App)} angemeldet.");
         }
 
         if (!await AppService.IsEnabledAsync(db, CloudApps.Drive, ct))
