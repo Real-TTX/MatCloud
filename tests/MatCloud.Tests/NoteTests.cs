@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MatCloud.Apps.Note.Business;
 using MatCloud.Contract;
 using MatCloud.Core.Business;
@@ -51,37 +52,176 @@ public sealed class NoteTests
         var module = MatCloud.Core.Modules.CloudModules.Find(CloudApps.Note)!;
         var protectedNote = Note("k", "Privat/Titel.txts", bytes: Encrypted);
         var plainNote = Note("k", "Privat/Titel.md", "alter Text");
+        bool Refused(SyncItemDto current, SyncItemDto incoming) => module.ReviewSyncChange(current, incoming) is null;
+        bool AsPushed(SyncItemDto current, SyncItemDto incoming) => ReferenceEquals(module.ReviewSyncChange(current, incoming), incoming);
 
         // an old plain copy (or a plain text at the protected path, or bytes under a plain name, or no note at all) does not replace it
-        Assert.False(module.AcceptsSyncChange(protectedNote, plainNote));
-        Assert.False(module.AcceptsSyncChange(protectedNote, Note("k", "Privat/Titel.txts", "Klartext")));
-        Assert.False(module.AcceptsSyncChange(protectedNote, Note("k", "Privat/Titel.md", bytes: Encrypted)));
-        Assert.False(module.AcceptsSyncChange(protectedNote, plainNote with { Data = "kein JSON" }));
-        Assert.False(module.AcceptsSyncChange(protectedNote, plainNote with { Data = "{\"path\":\"Titel.md\",\"content\":\"x\",\"unprotected\":false}" }));
+        Assert.True(Refused(protectedNote, plainNote));
+        Assert.True(Refused(protectedNote, Note("k", "Privat/Titel.txts", "Klartext")));
+        Assert.True(Refused(protectedNote, Note("k", "Privat/Titel.md", bytes: Encrypted)));
+        Assert.True(Refused(protectedNote, plainNote with { Data = "kein JSON" }));
+        Assert.True(Refused(protectedNote, plainNote with { Data = "{\"path\":\"Titel.md\",\"content\":\"x\",\"unprotected\":false}" }));
 
         // "Schutz aufheben" on a device: the marker lets it through; the JSON is ThixNote's (camelCase)
         var unprotected = Note("k", "Privat/Titel.md", "alter Text", unprotected: true);
         Assert.Contains("\"unprotected\":true", unprotected.Data);
-        Assert.True(module.AcceptsSyncChange(protectedNote, unprotected));
+        Assert.True(AsPushed(protectedNote, unprotected));
 
         // a protected note changed or renamed, a delete, protecting a plain note, plain changes, a deleted note written again: the last writer wins
-        Assert.True(module.AcceptsSyncChange(protectedNote, Note("k", "Privat/Titel.txts", bytes: EncryptedLater)));
-        Assert.True(module.AcceptsSyncChange(protectedNote, Note("k", "Arbeit/Neu.TXTS", bytes: Encrypted)));
-        Assert.True(module.AcceptsSyncChange(protectedNote, Tombstone("k", DateTimeOffset.UtcNow)));
-        Assert.True(module.AcceptsSyncChange(plainNote, protectedNote));
-        Assert.True(module.AcceptsSyncChange(plainNote, Note("k", "Privat/Titel.txt", "neuer Text")));
-        Assert.True(module.AcceptsSyncChange(Tombstone("k", DateTimeOffset.UtcNow), plainNote));
-        Assert.True(module.AcceptsSyncChange(plainNote with { Data = "{\"t\":1}" }, plainNote));
+        Assert.True(AsPushed(protectedNote, Note("k", "Privat/Titel.txts", bytes: EncryptedLater)));
+        Assert.True(AsPushed(protectedNote, Note("k", "Arbeit/Neu.TXTS", bytes: Encrypted)));
+        Assert.True(AsPushed(protectedNote, Tombstone("k", DateTimeOffset.UtcNow)));
+        Assert.True(AsPushed(plainNote, protectedNote));
+        Assert.True(AsPushed(plainNote, Note("k", "Privat/Titel.txt", "neuer Text")));
+        Assert.True(AsPushed(Tombstone("k", DateTimeOffset.UtcNow), plainNote));
+        Assert.True(AsPushed(plainNote with { Data = "{\"t\":1}" }, plainNote));
 
         // a push that deletes the protected note and writes it plain in one go never reaches the rule: one key twice is refused before
         Assert.Equal("items", SyncService.Validate(new SyncPushRequest([Tombstone("k", DateTimeOffset.UtcNow), plainNote]))!.Value.Field);
 
         // other collections of ThixNote, and the other modules, are not touched by the rule
-        Assert.True(module.AcceptsSyncChange(protectedNote with { Collection = "folders" }, plainNote with { Collection = "folders" }));
+        Assert.True(AsPushed(protectedNote with { Collection = "folders" }, plainNote with { Collection = "folders" }));
         foreach (var other in MatCloud.Core.Modules.CloudModules.All.Where(m => m.AppId != CloudApps.Note))
         {
-            Assert.True(other.AcceptsSyncChange(protectedNote, plainNote));
+            Assert.Same(plainNote, other.ReviewSyncChange(protectedNote, plainNote));
         }
+    }
+
+    /// <summary>The marker of "Schutz aufheben" in the data of a note: true, false, or null when it has none.</summary>
+    private static bool? Marker(string? data)
+    {
+        using var json = JsonDocument.Parse(data!);
+        return json.RootElement.TryGetProperty("unprotected", out var marker) ? marker.GetBoolean() : null;
+    }
+
+    [Fact]
+    public void The_marker_of_Schutz_aufheben_stays_on_the_note_while_it_stays_plain()
+    {
+        var module = MatCloud.Core.Modules.CloudModules.Find(CloudApps.Note)!;
+        var unprotectedNote = Note("k", "Privat/Titel.md", "offen", unprotected: true);
+        bool AsPushed(SyncItemDto current, SyncItemDto incoming) => ReferenceEquals(module.ReviewSyncChange(current, incoming), incoming);
+
+        // a plain change without the marker over the unprotected note (a device that never saw the marker, the browser, a rename): stored with it
+        foreach (var edit in new[] { Note("k", "Privat/Titel.md", "weiter"), Note("k", "Arbeit/Neu.txt", "umbenannt") })
+        {
+            var stored = module.ReviewSyncChange(unprotectedNote, edit)!;
+            Assert.NotSame(edit, stored);
+            Assert.True(Marker(stored.Data));
+            Assert.Equal(JsonDocument.Parse(edit.Data!).RootElement.GetProperty("path").GetString(), JsonDocument.Parse(stored.Data!).RootElement.GetProperty("path").GetString());
+            Assert.Equal(JsonDocument.Parse(edit.Data!).RootElement.GetProperty("content").GetString(), JsonDocument.Parse(stored.Data!).RootElement.GetProperty("content").GetString());
+            Assert.Equal(edit.ContentHash, stored.ContentHash);
+            Assert.Equal((edit.Collection, edit.Key, edit.UpdatedAt, edit.IsDeleted), (stored.Collection, stored.Key, stored.UpdatedAt, stored.IsDeleted));
+        }
+
+        // every other property of the pushed data stays as it is (unknown fields, numbers, escapes, umlauts); an "unprotected": false becomes true, once
+        const string pushed = """{"path":"Titel.md","content":"Grüße <b> & \"zitat\"\n\té","extra":{"a":[1,2.50,null],"b":"x"},"n":1.0e3,"Unprotected":false}""";
+        var amended = module.ReviewSyncChange(unprotectedNote, Note("k", "Titel.md", "egal") with { Data = pushed })!;
+        var before = JsonNode.Parse(pushed)!.AsObject();
+        var after = JsonNode.Parse(amended.Data!)!.AsObject();
+        Assert.Single(after, p => string.Equals(p.Key, "unprotected", StringComparison.OrdinalIgnoreCase));
+        Assert.True(after.Single(p => string.Equals(p.Key, "unprotected", StringComparison.OrdinalIgnoreCase)).Value!.GetValue<bool>());
+        before.Remove("Unprotected");
+        after.Remove(after.Single(p => string.Equals(p.Key, "unprotected", StringComparison.OrdinalIgnoreCase)).Key);
+        Assert.True(JsonNode.DeepEquals(before, after));
+        Assert.Equal("Grüße <b> & \"zitat\"\n\té", after["content"]!.GetValue<string>());
+        Assert.Contains("Grüße <b>", amended.Data);
+
+        // not carried: the note had no marker (or false), the push protects it again, the push carries the marker already, a delete, a note over a
+        // tombstone (re-created), no note at all, data with unescaped characters that would grow too long when written again with the marker
+        Assert.True(AsPushed(Note("k", "Privat/Titel.md", "offen"), Note("k", "Privat/Titel.md", "weiter")));
+        Assert.True(AsPushed(Note("k", "Titel.md", "x") with { Data = "{\"path\":\"Titel.md\",\"content\":\"x\",\"unprotected\":false}" }, Note("k", "Titel.md", "y")));
+        var protectedAgain = Note("k", "Privat/Titel.txts", bytes: Encrypted);
+        Assert.True(AsPushed(unprotectedNote, protectedAgain));
+        Assert.Null(Marker(module.ReviewSyncChange(unprotectedNote, protectedAgain)!.Data));
+        Assert.True(AsPushed(unprotectedNote, Note("k", "Privat/Titel.txts", "Klartext unter geschütztem Namen")));
+        Assert.True(AsPushed(unprotectedNote, Note("k", "Privat/Titel.md", "weiter", unprotected: true)));
+        Assert.True(AsPushed(unprotectedNote, Tombstone("k", DateTimeOffset.UtcNow)));
+        Assert.True(AsPushed(Tombstone("k", DateTimeOffset.UtcNow), Note("k", "Privat/Titel.md", "neu angelegt")));
+        Assert.True(AsPushed(unprotectedNote, Note("k", "Titel.md", "x") with { Data = "kein JSON" }));
+        Assert.True(AsPushed(unprotectedNote, Note("k", "Titel.md", "x") with { Data = "[1,2]" }));
+        var raw = "{\"path\":\"Titel.md\",\"content\":\"" + string.Concat(Enumerable.Repeat("😀", (SyncContract.MaxDataLength - 40) / 2)) + "\"}";
+        Assert.True(raw.Length <= SyncContract.MaxDataLength);
+        Assert.True(AsPushed(unprotectedNote, Note("k", "Titel.md", "x") with { Data = raw }));
+
+        // the longest note a device may push gets the marker too, and keeps it on the next change: dropped once, no later push would carry it again;
+        // ThixNote's JSON escapes every character beyond ASCII, so only the marker adds to it
+        var longest = Note("k", "Titel.md", new string('a', SyncContract.MaxDataLength - "{\"path\":\"Titel.md\",\"content\":\"\"}".Length));
+        Assert.Equal(SyncContract.MaxDataLength, longest.Data!.Length);
+        var storedLongest = module.ReviewSyncChange(unprotectedNote, longest)!;
+        Assert.True(Marker(storedLongest.Data));
+        Assert.Equal(SyncContract.MaxDataLength + ",\"unprotected\":true".Length, storedLongest.Data!.Length);
+        Assert.True(Marker(module.ReviewSyncChange(storedLongest, Note("k", "Titel.md", "kürzer"))!.Data));
+        var umlauts = Note("k", "Titel.md", string.Concat(Enumerable.Repeat("ä😀", (SyncContract.MaxDataLength - 40) / 18)));
+        Assert.True(umlauts.Data!.Length <= SyncContract.MaxDataLength);
+        Assert.True(Marker(module.ReviewSyncChange(unprotectedNote, umlauts)!.Data));
+
+        // the rule before it still holds: a plain push without the marker over a protected note is refused
+        Assert.Null(module.ReviewSyncChange(protectedAgain, Note("k", "Privat/Titel.md", "alter Text")));
+
+        // other collections of ThixNote, and the other modules, are not touched
+        Assert.True(AsPushed(unprotectedNote with { Collection = "folders" }, Note("k", "Privat/Titel.md", "weiter") with { Collection = "folders" }));
+        var plainEdit = Note("k", "Privat/Titel.md", "weiter");
+        foreach (var other in MatCloud.Core.Modules.CloudModules.All.Where(m => m.AppId != CloudApps.Note))
+        {
+            Assert.Same(plainEdit, other.ReviewSyncChange(unprotectedNote, plainEdit));
+        }
+    }
+
+    [DbFact]
+    public async Task The_cloud_keeps_the_marker_of_Schutz_aufheben_on_the_note_until_it_is_protected_again()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var anna = await test.AddUserAsync("anna");
+        var pc = Device(anna, "ANNA-PC");
+        var laptop = Device(anna, "LAPTOP");
+        var start = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var key = Guid.NewGuid().ToString();
+
+        async Task<SyncPushResult> Push(Actor device, SyncItemDto item)
+            => Assert.Single((await SyncService.PushAsync(test.NewContext(), device, CloudApps.Note, new SyncPushRequest([item]))).Results);
+
+        async Task<SyncItemDto> Stored()
+            => (await SyncService.ChangesAsync(test.NewContext(), pc, CloudApps.Note, 0, 100)).Items.Single(i => i.Key == key);
+
+        // protected on the PC, "Schutz aufheben" on the laptop (the PC is away from now on and never sees that push)
+        Assert.True((await Push(pc, Note(key, "Titel.md", "Klartext", at: start))).Applied);
+        Assert.True((await Push(pc, Note(key, "Titel.txts", bytes: Encrypted, at: start.AddSeconds(10)))).Applied);
+        Assert.True((await Push(laptop, Note(key, "Titel.md", "wieder offen", at: start.AddSeconds(20), unprotected: true))).Applied);
+        Assert.True(Marker((await Stored()).Data));
+
+        // the laptop edits the note again without the marker: the cloud keeps it on the note, the hash is the text's
+        Assert.True((await Push(laptop, Note(key, "Titel.md", "weiter", at: start.AddSeconds(30)))).Applied);
+        var edited = await Stored();
+        Assert.True(Marker(edited.Data));
+        Assert.Equal(Hash("weiter"), edited.ContentHash);
+        Assert.Equal("LAPTOP", edited.Source);
+
+        // saved and renamed in the browser: still there
+        var opened = (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!;
+        var saved = await NoteService.SaveAsync(test.NewContext(), Browser(anna), new NoteInput(key, "Titel", "", NoteKind.Markdown, "im Browser", opened.Hash));
+        Assert.True(saved.Ok, saved.Error);
+        Assert.True(Marker((await Stored()).Data));
+        var renamed = await NoteService.SaveAsync(
+            test.NewContext(), Browser(anna), new NoteInput(key, "Neu", "Arbeit", NoteKind.Markdown, "im Browser", (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!.Hash));
+        Assert.True(renamed.Ok, renamed.Error);
+        var browser = await Stored();
+        Assert.True(Marker(browser.Data));
+        Assert.Equal("Web", browser.Source);
+        var note = (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!;
+        Assert.Equal(("Arbeit/Neu.md", "im Browser", NoteKind.Markdown), (note.Path, note.Content, note.Kind));
+
+        // protected again: the marker is gone, the bytes as pushed
+        var now = DateTimeOffset.UtcNow;
+        Assert.True((await Push(laptop, Note(key, "Arbeit/Neu.txts", bytes: EncryptedLater, at: now.AddSeconds(5)))).Applied);
+        var locked = await Stored();
+        Assert.Null(Marker(locked.Data));
+        Assert.Equal(Convert.ToBase64String(EncryptedLater), JsonDocument.Parse(locked.Data!).RootElement.GetProperty("bytes").GetString());
+
+        // and a stale plain copy without the marker is refused again
+        var stale = await Push(pc, Note(key, "Titel.md", "alte Kopie", at: now.AddSeconds(10)));
+        Assert.False(stale.Applied);
+        Assert.Null(Marker(stale.Current!.Data));
+        Assert.Equal(NoteKind.Protected, (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!.Kind);
     }
 
     [DbFact]

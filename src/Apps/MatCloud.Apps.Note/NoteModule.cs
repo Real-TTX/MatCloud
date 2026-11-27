@@ -28,8 +28,11 @@ public sealed class NoteModule : ICloudModule
 
     public bool UsesGeneralSync => true;
 
-    /// <summary>A protected note becomes plain text only through a deliberate "Schutz aufheben" (<see cref="NoteService.AcceptsChange"/>).</summary>
-    public bool AcceptsSyncChange(SyncItemDto current, SyncItemDto incoming) => NoteService.AcceptsChange(current, incoming);
+    /// <summary>
+    /// A protected note becomes plain text only through a deliberate "Schutz aufheben", and its marker stays on the note while it stays plain
+    /// (<see cref="NoteService.ReviewChange"/>).
+    /// </summary>
+    public SyncItemDto? ReviewSyncChange(SyncItemDto current, SyncItemDto incoming) => NoteService.ReviewChange(current, incoming);
 
     public void AddServices(IServiceCollection services)
     {

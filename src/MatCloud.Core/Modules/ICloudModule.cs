@@ -67,12 +67,14 @@ public interface ICloudModule
 
     /// <summary>
     /// The module's say in the general sync of its app (only for a web client of it, <see cref="UsesGeneralSync"/>): asked for every pushed item that
-    /// would replace an item there already (a tombstone too) – the push is not older and not into a server collection. False: the item is not applied, the
-    /// device gets the item as it is (<c>SyncPushResult.Current</c>), exactly as when a newer change was there already. True (the default): the last writer
-    /// wins. ThixNote: a protected note becomes plain text only through a deliberate "Schutz aufheben" (its marker), never through an old plain copy.
+    /// would replace an item there already (a tombstone too) – the push is not older and not into a server collection. Null: the item is not applied, the
+    /// device gets the item as it is (<c>SyncPushResult.Current</c>), exactly as when a newer change was there already. Otherwise the item to store: the
+    /// cloud takes its <c>Data</c> and <c>ContentHash</c>; the collection, the key, the time, the delete and the source stay those of the push.
+    /// <paramref name="incoming"/> (the default): the last writer wins as it pushed. ThixNote: a protected note becomes plain text only through a
+    /// deliberate "Schutz aufheben" (its marker), never through an old plain copy, and the marker stays on the note while it stays plain.
     /// It decides from the two items alone (no database, no actor) and holds for every writer: devices, guests and the module's own pages.
     /// </summary>
-    bool AcceptsSyncChange(SyncItemDto current, SyncItemDto incoming) => true;
+    SyncItemDto? ReviewSyncChange(SyncItemDto current, SyncItemDto incoming) => incoming;
 
     /// <summary>Its services (most modules need none: the business layer is static).</summary>
     void AddServices(IServiceCollection services);

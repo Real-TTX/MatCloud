@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MatCloud.Contract;
 using MatCloud.Core.Business;
 using MatCloud.Core.Data;
@@ -45,8 +47,10 @@ public sealed record NoteInput(string? Key, string Title, string Folder, NoteKin
 
 /// <summary>
 /// The data of a note in the general sync, exactly as ThixNote writes it: the path and the text, or the encrypted bytes (base64).
-/// <see cref="Unprotected"/> (<c>"unprotected": true</c>) is set only on the one push of a deliberate "Schutz aufheben" of a protected note: without it the
-/// cloud does not let a protected note become plain text (<see cref="NoteService.AcceptsChange"/>). Left out otherwise (older clients ignore it).
+/// <see cref="Unprotected"/> (<c>"unprotected": true</c>) is set by ThixNote only on the one push of a deliberate "Schutz aufheben" of a protected note:
+/// without it the cloud does not let a protected note become plain text (<see cref="NoteService.AcceptsChange"/>). The cloud keeps it on the note while
+/// the note stays plain (<see cref="NoteService.CarryUnprotectedMarker"/>), so a device that was away still sees it. Left out otherwise (older clients
+/// ignore it).
 /// </summary>
 internal sealed record NoteData(string Path, string? Content = null, string? Bytes = null, bool? Unprotected = null);
 
@@ -71,6 +75,15 @@ public static class NoteService
     private static readonly char[] InvalidNameChars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
 
     private static readonly byte[] Magic = "QNSEC1"u8.ToArray();
+
+    /// <summary>How the cloud writes a note's data it amends: the text as it is (umlauts, &lt; and &gt; not escaped), like ThixNote's own JSON.</summary>
+    private static readonly JsonSerializerOptions StoredJson = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    /// <summary>
+    /// How much longer than an item may be pushed the cloud stores a note's data with the marker it adds: <c>,"unprotected":true</c>. The JSON of ThixNote
+    /// and of these pages escapes every character beyond ASCII, so written again with <see cref="StoredJson"/> it is never longer; only the marker adds.
+    /// </summary>
+    private static readonly int MarkerAllowance = ",\"unprotected\":true".Length;
 
     /// <summary>magic (6) + iterations (4) + salt (16) + nonce (12) + tag (16): the head of an encrypted file of ThixNote.</summary>
     private const int EncryptedHeaderSize = 54;
@@ -308,11 +321,18 @@ public static class NoteService
     // ---- the rule of the sync ----
 
     /// <summary>
-    /// Whether a pushed item may replace the item the cloud has (<see cref="NoteModule.AcceptsSyncChange"/>, for every writer: devices and these pages).
-    /// A protected note (.txts, encrypted bytes) becomes plain text only through a deliberate "Schutz aufheben": the pushed note carries
-    /// <c>"unprotected": true</c>. A device with an old plain copy of the note (offline while another device protected it) cannot turn it back into plain
-    /// text with a later change: its push is not applied and it takes the protected note. Everything else follows the last writer: a delete, the
-    /// folders, a change or rename of a protected note that stays protected, protecting a plain note, changes of plain notes.
+    /// What the cloud does with a pushed item that would replace an item it has (<see cref="NoteModule.ReviewSyncChange"/>, for every writer: devices and
+    /// these pages): null when it keeps its item (<see cref="AcceptsChange"/>), else the item to store (<see cref="CarryUnprotectedMarker"/>).
+    /// </summary>
+    public static SyncItemDto? ReviewChange(SyncItemDto current, SyncItemDto incoming)
+        => AcceptsChange(current, incoming) ? CarryUnprotectedMarker(current, incoming) : null;
+
+    /// <summary>
+    /// Whether a pushed item may replace the item the cloud has. A protected note (.txts, encrypted bytes) becomes plain text only through a deliberate
+    /// "Schutz aufheben": the pushed note carries <c>"unprotected": true</c>. A device with an old plain copy of the note (offline while another device
+    /// protected it) cannot turn it back into plain text with a later change: its push is not applied and it takes the protected note. Everything else
+    /// follows the last writer: a delete, the folders, a change or rename of a protected note that stays protected, protecting a plain note, changes of
+    /// plain notes.
     /// </summary>
     public static bool AcceptsChange(SyncItemDto current, SyncItemDto incoming)
     {
@@ -327,6 +347,59 @@ public static class NoteService
         }
 
         return Parse(incoming.Data) is { } after && (StaysProtected(after) || after.Unprotected == true);
+    }
+
+    /// <summary>
+    /// The item to store for an accepted push: the marker of "Schutz aufheben" stays on the note while it stays plain. The cloud keeps only the latest
+    /// state of a note, so a device that was away while the note was unprotected and then changed (on a device, in the browser, renamed) would never see
+    /// the marker and keep its protected copy apart. When the cloud has a plain note with <c>"unprotected": true</c> and the push is a plain note without
+    /// it, the pushed data is stored with <c>"unprotected": true</c> added – every other property as pushed, the hash unchanged (ThixNote hashes the text
+    /// only). Protecting the note again (bytes stored as pushed) or deleting it (a tombstone has no data) ends the marker. Everything else as pushed. The
+    /// marker may take the stored data over the length a device may push (<see cref="MarkerAllowance"/>): were it dropped there, no later push would carry
+    /// it again. Only data whose characters are not escaped (not ThixNote's) can grow further when written again; beyond the allowance it is stored as
+    /// pushed, which ends the marker (a device that was away then keeps a protected copy apart, nothing is lost).
+    /// </summary>
+    public static SyncItemDto CarryUnprotectedMarker(SyncItemDto current, SyncItemDto incoming)
+    {
+        if (incoming.Collection != NotesCollection || incoming.IsDeleted || current.IsDeleted || current.Collection != NotesCollection)
+        {
+            return incoming;
+        }
+
+        if (Parse(current.Data) is not { Unprotected: true } before || IsProtected(before))
+        {
+            return incoming;
+        }
+
+        if (Parse(incoming.Data) is not { } after || IsProtected(after) || after.Unprotected == true)
+        {
+            return incoming;
+        }
+
+        return WithUnprotectedMarker(incoming.Data!) is { } marked ? incoming with { Data = marked } : incoming;
+    }
+
+    /// <summary>
+    /// The JSON of a note with <c>"unprotected": true</c> set, every other property kept; null when it is no object or longer than an item plus
+    /// <see cref="MarkerAllowance"/>.
+    /// </summary>
+    private static string? WithUnprotectedMarker(string data)
+    {
+        try
+        {
+            if (JsonNode.Parse(data, new JsonNodeOptions { PropertyNameCaseInsensitive = true }) is not JsonObject note)
+            {
+                return null;
+            }
+
+            note["unprotected"] = true;
+            var marked = note.ToJsonString(StoredJson);
+            return marked.Length <= SyncContract.MaxDataLength + MarkerAllowance ? marked : null;
+        }
+        catch (Exception e) when (e is JsonException or ArgumentException or InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     /// <summary>A note that is protected, or claims to be: encrypted bytes or the extension .txts.</summary>

@@ -10,8 +10,9 @@ namespace MatCloud.Core.Business;
 /// A device reads and writes only the items of its own app and account. The last writer wins by the time of the change on the device (a delete too,
 /// and a later write brings a deleted item back); every change takes the next number of the sequence <c>SyncRevision</c> while the stream of the app
 /// and account is locked (<see cref="Revisions"/>), so a device that asks for everything above its last revision never misses one. The module of an
-/// app that is a web client of the general sync may keep an item from being replaced (<see cref="ICloudModule.AcceptsSyncChange"/>: ThixNote's
-/// protected notes); the device then takes the item as it is.
+/// app that is a web client of the general sync reviews a change of an item it has (<see cref="ICloudModule.ReviewSyncChange"/>): it may keep the item
+/// from being replaced (ThixNote's protected notes; the device then takes the item as it is) or amend the data that is stored (ThixNote's marker of
+/// "Schutz aufheben" stays on the note).
 /// </summary>
 public static class SyncService
 {
@@ -144,11 +145,18 @@ public static class SyncService
                     continue;
                 }
 
-                if (row is not null && module is not null && !module.AcceptsSyncChange(ToDto(row), item))
+                var stored = item;
+                if (row is not null && module is not null)
                 {
-                    // The module keeps the item as it is (ThixNote: a protected note does not become plain text by accident): the device takes it.
-                    results.Add(new SyncPushResult(item.Collection, item.Key, row.Revision, false, ToDto(row)));
-                    continue;
+                    if (module.ReviewSyncChange(ToDto(row), item) is not { } reviewed)
+                    {
+                        // The module keeps the item as it is (ThixNote: a protected note does not become plain text by accident): the device takes it.
+                        results.Add(new SyncPushResult(item.Collection, item.Key, row.Revision, false, ToDto(row)));
+                        continue;
+                    }
+
+                    // what the module stores (ThixNote: the marker of "Schutz aufheben" carried forward); everything else as pushed
+                    stored = reviewed;
                 }
 
                 if (row is null)
@@ -158,8 +166,8 @@ public static class SyncService
                     existing[(item.Collection, item.Key)] = row;
                 }
 
-                row.Data = item.IsDeleted ? null : item.Data;
-                row.ContentHash = item.IsDeleted ? null : item.ContentHash;
+                row.Data = item.IsDeleted ? null : stored.Data;
+                row.ContentHash = item.IsDeleted ? null : stored.ContentHash;
                 row.Size = row.Data?.Length ?? 0;
                 row.ClientUpdateDate = when;
                 row.Source = Clip(actor.Source, 100);
