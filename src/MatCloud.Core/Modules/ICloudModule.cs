@@ -1,3 +1,4 @@
+using MatCloud.Contract;
 using MatCloud.Core.Data;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +64,15 @@ public interface ICloudModule
     /// like <see cref="GuestApps"/>.
     /// </summary>
     IReadOnlyList<string> ReadingGuestApps => [];
+
+    /// <summary>
+    /// The module's say in the general sync of its app (only for a web client of it, <see cref="UsesGeneralSync"/>): asked for every pushed item that
+    /// would replace an item there already (a tombstone too) – the push is not older and not into a server collection. False: the item is not applied, the
+    /// device gets the item as it is (<c>SyncPushResult.Current</c>), exactly as when a newer change was there already. True (the default): the last writer
+    /// wins. ThixNote: a protected note becomes plain text only through a deliberate "Schutz aufheben" (its marker), never through an old plain copy.
+    /// It decides from the two items alone (no database, no actor) and holds for every writer: devices, guests and the module's own pages.
+    /// </summary>
+    bool AcceptsSyncChange(SyncItemDto current, SyncItemDto incoming) => true;
 
     /// <summary>Its services (most modules need none: the business layer is static).</summary>
     void AddServices(IServiceCollection services);

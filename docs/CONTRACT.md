@@ -67,6 +67,17 @@ change on the device), `isDeleted`; set by the cloud: `source` (the device), `re
 - Tombstones are kept a year (every device has seen them by then).
 - Collections that begin with `cloud-` are written by MatCloud only (a module that syncs on the server): a device reads them; its push into one is not
   applied (`applied: false`, `current` = the item as it is).
+- A module that is a web client of the general sync may keep an item as it is (`ICloudModule.AcceptsSyncChange`, answered as above; the only place the
+  cloud looks into `data`). **ThixNote** (`notes` = `{ path, content | bytes, unprotected? }`): a protected note (`bytes`, `.txts`) becomes plain text
+  (`content`, or a path not ending `.txts`) only when the push carries `"unprotected": true` – ThixNote sets it only on the one push of a deliberate
+  "Schutz aufheben". Without it (an old plain copy of a device that was offline while the note was protected elsewhere) the push is not applied and the
+  device gets the protected note. A delete, a change or rename of a protected note, protecting a plain note and plain changes follow the last writer.
+  No change of the contract: the field lives in the app's own data. Known and accepted: a protected note that was deleted is a tombstone without data,
+  so a later plain write of an old copy brings it back as plain text (the rule "a later write brings the item back"; one push cannot carry the delete
+  and the plain text of one key, `Validate` refuses a key twice).
+  **Release order:** a ThixNote without the marker cannot unprotect a note the cloud has protected once this rule runs: its push is refused, and
+  ThixNote versions before the marker do not take the refusal back (the note stays plain on that device only and its push is refused again every
+  round). So MatCloud with this rule is deployed only after the ThixNote release that sends the marker has reached the devices.
 
 ## ThixClip (the module `clip`)
 

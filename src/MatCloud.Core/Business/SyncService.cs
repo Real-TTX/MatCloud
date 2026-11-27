@@ -9,7 +9,9 @@ namespace MatCloud.Core.Business;
 /// The general sync (<see cref="SyncContract"/>): the data of every app without a module of its own, as items an app names by collection and key.
 /// A device reads and writes only the items of its own app and account. The last writer wins by the time of the change on the device (a delete too,
 /// and a later write brings a deleted item back); every change takes the next number of the sequence <c>SyncRevision</c> while the stream of the app
-/// and account is locked (<see cref="Revisions"/>), so a device that asks for everything above its last revision never misses one.
+/// and account is locked (<see cref="Revisions"/>), so a device that asks for everything above its last revision never misses one. The module of an
+/// app that is a web client of the general sync may keep an item from being replaced (<see cref="ICloudModule.AcceptsSyncChange"/>: ThixNote's
+/// protected notes); the device then takes the item as it is.
 /// </summary>
 public static class SyncService
 {
@@ -122,6 +124,7 @@ public static class SyncService
                 .Where(i => i.UserId == actor.UserId && i.App == app && keys.Contains(i.Collection + "\n" + i.Key))
                 .ToDictionaryAsync(i => (i.Collection, i.Key), ct);
 
+            var module = CloudModules.Find(app);
             var results = new List<SyncPushResult>();
             foreach (var item in request.Items)
             {
@@ -137,6 +140,13 @@ public static class SyncService
                 if (row is not null && row.ClientUpdateDate > when)
                 {
                     // A newer change is there already: the device takes it.
+                    results.Add(new SyncPushResult(item.Collection, item.Key, row.Revision, false, ToDto(row)));
+                    continue;
+                }
+
+                if (row is not null && module is not null && !module.AcceptsSyncChange(ToDto(row), item))
+                {
+                    // The module keeps the item as it is (ThixNote: a protected note does not become plain text by accident): the device takes it.
                     results.Add(new SyncPushResult(item.Collection, item.Key, row.Revision, false, ToDto(row)));
                     continue;
                 }

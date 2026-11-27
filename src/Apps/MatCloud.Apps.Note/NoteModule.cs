@@ -1,4 +1,5 @@
 using MatCloud.Apps.Note.Api;
+using MatCloud.Apps.Note.Business;
 using MatCloud.Contract;
 using MatCloud.Core.Business;
 using MatCloud.Core.Data;
@@ -26,6 +27,9 @@ public sealed class NoteModule : ICloudModule
     public long? MaxRequestBodyBytes => null;
 
     public bool UsesGeneralSync => true;
+
+    /// <summary>A protected note becomes plain text only through a deliberate "Schutz aufheben" (<see cref="NoteService.AcceptsChange"/>).</summary>
+    public bool AcceptsSyncChange(SyncItemDto current, SyncItemDto incoming) => NoteService.AcceptsChange(current, incoming);
 
     public void AddServices(IServiceCollection services)
     {

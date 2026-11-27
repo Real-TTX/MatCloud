@@ -27,6 +27,192 @@ public sealed class NoteTests
         UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
     };
 
+    private static readonly byte[] Encrypted = [.. "QNSEC1"u8, 0x40, 0x27, 0x09, 0x00, .. new byte[44], .. "geheim"u8];
+
+    private static readonly byte[] EncryptedLater = [.. "QNSEC1"u8, 0x40, 0x27, 0x09, 0x00, .. new byte[44], .. "anders"u8];
+
+    /// <summary>A note as ThixNote pushes it at <paramref name="at"/>, with the marker of "Schutz aufheben" when <paramref name="unprotected"/>.</summary>
+    private static SyncItemDto Note(string key, string path, string? content = null, byte[]? bytes = null, DateTimeOffset? at = null, bool unprotected = false) => new()
+    {
+        Collection = "notes",
+        Key = key,
+        Data = JsonSerializer.Serialize(
+            new { path, content, bytes = bytes is null ? null : Convert.ToBase64String(bytes), unprotected = unprotected ? true : (bool?)null }, CloudContract.Json),
+        ContentHash = bytes is null ? Hash(content!) : Convert.ToHexStringLower(SHA256.HashData(bytes)),
+        UpdatedAt = at ?? DateTimeOffset.UtcNow.AddMinutes(-5),
+    };
+
+    private static SyncItemDto Tombstone(string key, DateTimeOffset at, string collection = "notes")
+        => new() { Collection = collection, Key = key, IsDeleted = true, UpdatedAt = at };
+
+    [Fact]
+    public void A_protected_note_becomes_plain_text_only_with_the_marker_of_Schutz_aufheben()
+    {
+        var module = MatCloud.Core.Modules.CloudModules.Find(CloudApps.Note)!;
+        var protectedNote = Note("k", "Privat/Titel.txts", bytes: Encrypted);
+        var plainNote = Note("k", "Privat/Titel.md", "alter Text");
+
+        // an old plain copy (or a plain text at the protected path, or bytes under a plain name, or no note at all) does not replace it
+        Assert.False(module.AcceptsSyncChange(protectedNote, plainNote));
+        Assert.False(module.AcceptsSyncChange(protectedNote, Note("k", "Privat/Titel.txts", "Klartext")));
+        Assert.False(module.AcceptsSyncChange(protectedNote, Note("k", "Privat/Titel.md", bytes: Encrypted)));
+        Assert.False(module.AcceptsSyncChange(protectedNote, plainNote with { Data = "kein JSON" }));
+        Assert.False(module.AcceptsSyncChange(protectedNote, plainNote with { Data = "{\"path\":\"Titel.md\",\"content\":\"x\",\"unprotected\":false}" }));
+
+        // "Schutz aufheben" on a device: the marker lets it through; the JSON is ThixNote's (camelCase)
+        var unprotected = Note("k", "Privat/Titel.md", "alter Text", unprotected: true);
+        Assert.Contains("\"unprotected\":true", unprotected.Data);
+        Assert.True(module.AcceptsSyncChange(protectedNote, unprotected));
+
+        // a protected note changed or renamed, a delete, protecting a plain note, plain changes, a deleted note written again: the last writer wins
+        Assert.True(module.AcceptsSyncChange(protectedNote, Note("k", "Privat/Titel.txts", bytes: EncryptedLater)));
+        Assert.True(module.AcceptsSyncChange(protectedNote, Note("k", "Arbeit/Neu.TXTS", bytes: Encrypted)));
+        Assert.True(module.AcceptsSyncChange(protectedNote, Tombstone("k", DateTimeOffset.UtcNow)));
+        Assert.True(module.AcceptsSyncChange(plainNote, protectedNote));
+        Assert.True(module.AcceptsSyncChange(plainNote, Note("k", "Privat/Titel.txt", "neuer Text")));
+        Assert.True(module.AcceptsSyncChange(Tombstone("k", DateTimeOffset.UtcNow), plainNote));
+        Assert.True(module.AcceptsSyncChange(plainNote with { Data = "{\"t\":1}" }, plainNote));
+
+        // a push that deletes the protected note and writes it plain in one go never reaches the rule: one key twice is refused before
+        Assert.Equal("items", SyncService.Validate(new SyncPushRequest([Tombstone("k", DateTimeOffset.UtcNow), plainNote]))!.Value.Field);
+
+        // other collections of ThixNote, and the other modules, are not touched by the rule
+        Assert.True(module.AcceptsSyncChange(protectedNote with { Collection = "folders" }, plainNote with { Collection = "folders" }));
+        foreach (var other in MatCloud.Core.Modules.CloudModules.All.Where(m => m.AppId != CloudApps.Note))
+        {
+            Assert.True(other.AcceptsSyncChange(protectedNote, plainNote));
+        }
+    }
+
+    [DbFact]
+    public async Task An_old_plain_copy_of_a_device_cannot_turn_a_protected_note_back_into_plain_text()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var anna = await test.AddUserAsync("anna");
+        var pc = Device(anna, "ANNA-PC");
+        var laptop = Device(anna, "LAPTOP");
+        var start = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var key = Guid.NewGuid().ToString();
+        await SyncService.PushAsync(test.Db, pc, CloudApps.Note, new SyncPushRequest([Note(key, "Titel.md", "Klartext", at: start)]));
+
+        // the PC protects the note (same key), the laptop was offline and edits its old plain copy later by its own clock
+        var protecting = await SyncService.PushAsync(test.NewContext(), pc, CloudApps.Note, new SyncPushRequest([Note(key, "Titel.txts", bytes: Encrypted, at: start.AddSeconds(10))]));
+        Assert.True(Assert.Single(protecting.Results).Applied);
+        var stale = await SyncService.PushAsync(test.NewContext(), laptop, CloudApps.Note, new SyncPushRequest([Note(key, "Titel.md", "offline geändert", at: start.AddSeconds(12))]));
+
+        // not applied: the laptop gets the protected note, exactly as when a newer change is there
+        var result = Assert.Single(stale.Results);
+        Assert.False(result.Applied);
+        Assert.Equal(protecting.Results[0].Revision, result.Revision);
+        using (var current = JsonDocument.Parse(result.Current!.Data!))
+        {
+            Assert.Equal("Titel.txts", current.RootElement.GetProperty("path").GetString());
+            Assert.Equal(Convert.ToBase64String(Encrypted), current.RootElement.GetProperty("bytes").GetString());
+        }
+
+        Assert.Equal(protecting.Latest, stale.Latest);
+        Assert.Equal(NoteKind.Protected, (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!.Kind);
+
+        // "Schutz aufheben" on the laptop: the marker makes it plain text on every device, and later plain changes need no marker
+        var unprotecting = await SyncService.PushAsync(test.NewContext(), laptop, CloudApps.Note, new SyncPushRequest([Note(key, "Titel.md", "wieder offen", at: start.AddSeconds(20), unprotected: true)]));
+        Assert.True(Assert.Single(unprotecting.Results).Applied);
+        var plain = await SyncService.PushAsync(test.NewContext(), pc, CloudApps.Note, new SyncPushRequest([Note(key, "Titel.md", "weiter", at: start.AddSeconds(30))]));
+        Assert.True(Assert.Single(plain.Results).Applied);
+        var note = (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!;
+        Assert.Equal(NoteKind.Markdown, note.Kind);
+        Assert.Equal("weiter", note.Content);
+    }
+
+    [DbFact]
+    public async Task A_protected_note_is_changed_renamed_and_deleted_as_before_and_a_plain_note_is_protected()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var anna = await test.AddUserAsync("anna");
+        var pc = Device(anna);
+        var start = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var key = Guid.NewGuid().ToString();
+
+        async Task<bool> Applied(SyncItemDto item)
+            => Assert.Single((await SyncService.PushAsync(test.NewContext(), pc, CloudApps.Note, new SyncPushRequest([item]))).Results).Applied;
+
+        Assert.True(await Applied(Note(key, "Titel.md", "eins", at: start)));
+        Assert.True(await Applied(Note(key, "Titel.md", "zwei", at: start.AddSeconds(1))));
+        Assert.True(await Applied(Note(key, "Titel.txts", bytes: Encrypted, at: start.AddSeconds(2))));
+        Assert.True(await Applied(Note(key, "Titel.txts", bytes: EncryptedLater, at: start.AddSeconds(3))));
+        Assert.True(await Applied(Note(key, "Privat/Zugang.txts", bytes: EncryptedLater, at: start.AddSeconds(4))));
+        Assert.True(await Applied(new SyncItemDto { Collection = "folders", Key = "Privat", Data = "{}", UpdatedAt = start.AddSeconds(5) }));
+
+        // a delete is not held back (ThixNote moves the note into the trash of the computer)
+        Assert.True(await Applied(Tombstone(key, start.AddSeconds(6))));
+        Assert.True((await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).NotFound);
+
+        // another app of the general sync with the same shape of data: no rule of ThixNote
+        var tunnel = new Actor(anna.Id, anna.IsAdmin, 8, "ANNA-PC", CloudApps.Tunnel);
+        await SyncService.PushAsync(test.NewContext(), tunnel, CloudApps.Tunnel, new SyncPushRequest([Note(key, "Titel.txts", bytes: Encrypted, at: start)]));
+        var other = await SyncService.PushAsync(test.NewContext(), tunnel, CloudApps.Tunnel, new SyncPushRequest([Note(key, "Titel.md", "Klartext", at: start.AddSeconds(1))]));
+        Assert.True(Assert.Single(other.Results).Applied);
+    }
+
+    [DbFact]
+    public async Task The_pages_never_turn_a_protected_note_into_plain_text_and_never_drop_a_text_silently()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var anna = await test.AddUserAsync("anna");
+        var start = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var key = Guid.NewGuid().ToString();
+        await SyncService.PushAsync(test.Db, Device(anna), CloudApps.Note, new SyncPushRequest([Note(key, "Titel.md", "Klartext", at: start)]));
+        var opened = (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!;
+
+        // the page is open on the plain note while a device protects it
+        await SyncService.PushAsync(test.NewContext(), Device(anna), CloudApps.Note, new SyncPushRequest([Note(key, "Titel.txts", bytes: Encrypted, at: start.AddSeconds(10))]));
+        var saved = await NoteService.SaveAsync(test.NewContext(), Browser(anna), new NoteInput(key, "Titel", "", NoteKind.Markdown, "im Browser geschrieben", opened.Hash));
+        Assert.False(saved.Ok);
+        Assert.Equal("Text", saved.Field);
+        var note = (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!;
+        Assert.Equal(NoteKind.Protected, note.Kind);
+        Assert.Equal(Convert.ToBase64String(Encrypted), note.Bytes);
+
+        // renaming it on its page keeps it protected
+        var renamed = await NoteService.SaveAsync(test.NewContext(), Browser(anna), new NoteInput(key, "Zugang", "Privat", NoteKind.Protected, string.Empty, note.Hash));
+        Assert.True(renamed.Ok, renamed.Error);
+        Assert.Equal("Privat/Zugang.txts", (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!.Path);
+
+        // the rule holds for the browser too: a plain text pushed in its name is not applied
+        var pushed = await SyncService.PushAsync(test.NewContext(), Browser(anna), CloudApps.Note, new SyncPushRequest([Note(key, "Privat/Zugang.md", "Klartext", at: DateTimeOffset.UtcNow)]));
+        Assert.False(Assert.Single(pushed.Results).Applied);
+        Assert.Equal(NoteKind.Protected, (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!.Kind);
+    }
+
+    [DbFact]
+    public async Task A_save_of_the_pages_that_the_cloud_does_not_take_is_never_reported_as_saved()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var anna = await test.AddUserAsync("anna");
+        var key = Guid.NewGuid().ToString();
+
+        // a device whose clock is ahead wrote the note: the page opens on that text, and its save is older by the clocks, so the cloud keeps the device's
+        // (the same answer as for a device that protects the note between the checks of the page and its push)
+        await SyncService.PushAsync(test.Db, Device(anna), CloudApps.Note, new SyncPushRequest([Note(key, "Titel.md", "vom Gerät", at: DateTimeOffset.UtcNow.AddHours(1))]));
+        var opened = (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!;
+        var saved = await NoteService.SaveAsync(test.NewContext(), Browser(anna), new NoteInput(key, "Titel", "", NoteKind.Markdown, "im Browser geschrieben", opened.Hash));
+        Assert.False(saved.Ok);
+        Assert.Equal("Text", saved.Field);
+        Assert.Equal("vom Gerät", (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!.Content);
+
+        // the same for the encrypted text of a protected note and for renaming it
+        await SyncService.PushAsync(test.NewContext(), Device(anna), CloudApps.Note, new SyncPushRequest([Note(key, "Titel.txts", bytes: Encrypted, at: DateTimeOffset.UtcNow.AddHours(2))]));
+        var locked = (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!;
+        var encrypted = await NoteService.SaveProtectedAsync(test.NewContext(), Browser(anna), key, Convert.ToBase64String(EncryptedLater), locked.Hash);
+        Assert.False(encrypted.Ok);
+        Assert.Equal("Bytes", encrypted.Field);
+        var renamed = await NoteService.SaveAsync(test.NewContext(), Browser(anna), new NoteInput(key, "Zugang", "", NoteKind.Protected, string.Empty, locked.Hash));
+        Assert.False(renamed.Ok);
+        Assert.Equal("Title", renamed.Field);
+        var note = (await NoteService.GetAsync(test.NewContext(), Browser(anna), key)).Value!;
+        Assert.Equal("Titel.txts", note.Path);
+        Assert.Equal(Convert.ToBase64String(Encrypted), note.Bytes);
+    }
+
     [DbFact]
     public async Task A_note_written_in_the_browser_reaches_ThixNote_in_its_own_format()
     {

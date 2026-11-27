@@ -67,9 +67,10 @@ public sealed class EditModel : AppPageModel
         if (!outcome.Ok)
         {
             await LoadAsync();
-            if (Note is { } current && outcome.Field == "Text" && !string.IsNullOrEmpty(BaseHash) && BaseHash != current.Hash)
+            if (Note is { Kind: not NoteKind.Protected } current && outcome.Field == "Text" && !string.IsNullOrEmpty(BaseHash) && BaseHash != current.Hash)
             {
                 // a device changed the note meanwhile: the text of the person stays on the page, and saving again replaces the device's change on purpose
+                // (not when a device protected it: the text stays on the page to be copied, and saving it stays refused)
                 BaseHash = current.Hash;
                 ModelState.Remove(nameof(BaseHash));
                 IsConflict = true;

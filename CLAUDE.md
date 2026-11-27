@@ -107,8 +107,10 @@ src/Apps/MatCloud.Apps.Clip (Razor class library) the module ThixClip: ClipModul
                             ClipSettingsService: retention, ClipContent: hash/links, ImageTools: SkiaSharp); Api/ClipEndpoints (/api/v1/clip for ThixClip
                             devices, /live/clip for the pages); Pages/Clip (Verlauf, Eintrag, Einstellungen), Pages/Shared/_ClipMenu; wwwroot/js/clip-live.js
 src/Apps/MatCloud.Apps.Note (Razor class library) the module ThixNote, no tables: NoteModule (UsesGeneralSync); Business/NoteService (the notes on the
-                            items of the general sync in ThixNote's format: collection notes {path, content | bytes}, hash = SHA-256 hex of the text or
-                            the bytes, collection folders; stale texts refused by the hash the page opened with); Api/NoteEndpoints (/live/note);
+                            items of the general sync in ThixNote's format: collection notes {path, content | bytes, unprotected?}, hash = SHA-256 hex of
+                            the text or the bytes, collection folders; stale texts refused by the hash the page opened with, also when a device protected
+                            the note meanwhile; AcceptsChange = the module's AcceptsSyncChange: no plain text over a protected note without the marker
+                            "unprotected"); Api/NoteEndpoints (/live/note);
                             Business/NoteMarkdown (Markdig without HTML, the first heading that repeats the title left out; plain lines for cards);
                             Pages/Note (Index: cards, View: the note as a page, Edit: the editor), Pages/Shared/_NoteMenu (folders); wwwroot/js
                             note-live.js, note-editor.js (toolbar, keys, lists that continue, preview from POST /live/note/preview, Strg+S, a warning
@@ -163,7 +165,11 @@ docs/                       ARCHITECTURE.md (platform, modules, sync), CONTRACT.
 - **Sync rules:** one revision sequence per kind of data (`SyncRevision` for the general sync, `ClipRevision` for the clips); every change of a stream
   (an app of an account) runs under its advisory lock (`Revisions.ChangeAsync`), so "everything above N" never misses a change; the long polls are woken
   after the commit (in memory: one server instance). General sync: last writer wins by `UpdatedAt`, a delete too, a later write revives; collections
-  `cloud-*` are written by the server only (a device's push into them is not applied). Clips:
+  `cloud-*` are written by the server only (a device's push into them is not applied); a module that is a web client of it may keep an item as it is
+  (`ICloudModule.AcceptsSyncChange`, answered like a lost push): ThixNote's protected note (`bytes`, `.txts`) becomes plain text only with
+  `"unprotected": true` in the note's data (set by ThixNote on the push of a deliberate "Schutz aufheben"), never through an old plain copy – **deploy
+  it only after the ThixNote release with the marker is on the devices** (an older ThixNote cannot unprotect and pushes again every round; docs/CONTRACT.md);
+  the pages report a push the cloud did not take as not saved. Clips:
   deleting wins, the same content is merged. Never log clipboard contents, note contents, passwords or tokens.
 - **Modules:** everything of an app lives in its project under `src/Apps` (tables, business, routes, pages, scripts, its menu partial); the platform
   knows no module by name (only `Modules.cs` lists them). Device routes go through `DeviceEndpoints.ForApp`. See docs/MODULES.md.

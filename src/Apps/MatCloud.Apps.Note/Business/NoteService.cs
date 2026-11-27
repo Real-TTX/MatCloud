@@ -43,8 +43,12 @@ public sealed record NoteListResult(IReadOnlyList<NoteItem> Items, int Total, IR
 /// <summary>What the edit page posts. <see cref="BaseHash"/> is the hash of the text the page was opened with (empty for a new note).</summary>
 public sealed record NoteInput(string? Key, string Title, string Folder, NoteKind Kind, string Content, string? BaseHash);
 
-/// <summary>The data of a note in the general sync, exactly as ThixNote writes it: the path and the text, or the encrypted bytes (base64).</summary>
-internal sealed record NoteData(string Path, string? Content = null, string? Bytes = null);
+/// <summary>
+/// The data of a note in the general sync, exactly as ThixNote writes it: the path and the text, or the encrypted bytes (base64).
+/// <see cref="Unprotected"/> (<c>"unprotected": true</c>) is set only on the one push of a deliberate "Schutz aufheben" of a protected note: without it the
+/// cloud does not let a protected note become plain text (<see cref="NoteService.AcceptsChange"/>). Left out otherwise (older clients ignore it).
+/// </summary>
+internal sealed record NoteData(string Path, string? Content = null, string? Bytes = null, bool? Unprotected = null);
 
 /// <summary>
 /// The notes of ThixNote in the browser. ThixNote keeps every note as an item of the general sync (app <c>note</c>, collection <c>notes</c>, key = a GUID,
@@ -70,6 +74,9 @@ public static class NoteService
 
     /// <summary>magic (6) + iterations (4) + salt (16) + nonce (12) + tag (16): the head of an encrypted file of ThixNote.</summary>
     private const int EncryptedHeaderSize = 54;
+
+    private const string ProtectedMeanwhile =
+        "Die Notiz wurde inzwischen auf einem anderen Gerät geschützt. Dein Text wird nicht gespeichert – kopiere ihn, wenn du ihn behalten willst.";
 
     public static string Extension(NoteKind kind) => kind switch
     {
@@ -152,7 +159,8 @@ public static class NoteService
 
     /// <summary>
     /// Creates a note or changes one (title, folder, text; the kind of an existing note stays). For a protected note only the title and the folder change:
-    /// its text is changed with <see cref="SaveProtectedAsync"/>. When the text changed elsewhere since the page was opened, nothing is saved.
+    /// its text is changed with <see cref="SaveProtectedAsync"/>. When the text changed elsewhere since the page was opened, nothing is saved;
+    /// nor when the cloud does not take the push (a device changed or protected the note in the meantime): the page is told, never "saved".
     /// </summary>
     public static async Task<Outcome<string>> SaveAsync(AppDbContext db, Actor actor, NoteInput input, CancellationToken ct = default)
     {
@@ -178,6 +186,11 @@ public static class NoteService
             }
 
             existing = found.Value!;
+            if (existing.Kind == NoteKind.Protected && input.Kind != NoteKind.Protected && !string.IsNullOrEmpty(input.BaseHash) && input.BaseHash != existing.Hash)
+            {
+                // the page was opened on the plain note, a device protected it since: its text is never saved as plain text, and never dropped silently
+                return Outcome<string>.Fail(ProtectedMeanwhile, "Text");
+            }
         }
 
         var kind = existing?.Kind ?? (input.Kind == NoteKind.Text ? NoteKind.Text : NoteKind.Markdown);
@@ -204,7 +217,16 @@ public static class NoteService
 
         var key = existing?.Key ?? Guid.NewGuid().ToString();
         var data = kind == NoteKind.Protected ? new NoteData(path, null, existing!.Bytes) : new NoteData(path, content);
-        await PushAsync(db, actor, NoteDto(key, data), folder, ct);
+        if (await PushAsync(db, actor, NoteDto(key, data), folder, ct) is { Applied: false } refused)
+        {
+            // a device changed the note between the checks above and the push (or its clock is ahead): nothing is saved, and the page says so
+            return kind == NoteKind.Protected
+                ? Outcome<string>.Fail("Die Notiz wurde gerade auf einem anderen Gerät geändert. Bitte neu laden.", "Title")
+                : Outcome<string>.Fail(
+                    IsProtected(refused.Current) ? ProtectedMeanwhile : "Die Notiz wurde gerade auf einem anderen Gerät geändert. Dein Text ist nicht gespeichert, aber noch da.",
+                    "Text");
+        }
+
         return Outcome<string>.Success(key);
     }
 
@@ -248,7 +270,11 @@ public static class NoteService
             return Outcome.Fail("Die Notiz ist zu lang für die Cloud.", "Bytes");
         }
 
-        await PushAsync(db, actor, NoteDto(note.Key, data), note.Folder, ct);
+        if (await PushAsync(db, actor, NoteDto(note.Key, data), note.Folder, ct) is { Applied: false })
+        {
+            return Outcome.Fail("Die Notiz wurde inzwischen auf einem anderen Gerät geändert. Bitte neu laden.", "Bytes");
+        }
+
         return Outcome.Success();
     }
 
@@ -277,6 +303,60 @@ public static class NoteService
 
         await PushAsync(db, actor, null, folder, ct);
         return Outcome<string>.Success(folder);
+    }
+
+    // ---- the rule of the sync ----
+
+    /// <summary>
+    /// Whether a pushed item may replace the item the cloud has (<see cref="NoteModule.AcceptsSyncChange"/>, for every writer: devices and these pages).
+    /// A protected note (.txts, encrypted bytes) becomes plain text only through a deliberate "Schutz aufheben": the pushed note carries
+    /// <c>"unprotected": true</c>. A device with an old plain copy of the note (offline while another device protected it) cannot turn it back into plain
+    /// text with a later change: its push is not applied and it takes the protected note. Everything else follows the last writer: a delete, the
+    /// folders, a change or rename of a protected note that stays protected, protecting a plain note, changes of plain notes.
+    /// </summary>
+    public static bool AcceptsChange(SyncItemDto current, SyncItemDto incoming)
+    {
+        if (incoming.Collection != NotesCollection || incoming.IsDeleted || current.IsDeleted)
+        {
+            return true;
+        }
+
+        if (Parse(current.Data) is not { } before || !IsProtected(before))
+        {
+            return true;
+        }
+
+        return Parse(incoming.Data) is { } after && (StaysProtected(after) || after.Unprotected == true);
+    }
+
+    /// <summary>A note that is protected, or claims to be: encrypted bytes or the extension .txts.</summary>
+    private static bool IsProtected(NoteData data) => data.Bytes is not null || HasProtectedExtension(data.Path);
+
+    /// <summary>An item of the sync that is a protected note (false for a tombstone, another collection, no note).</summary>
+    private static bool IsProtected(SyncItemDto? item)
+        => item is { Collection: NotesCollection, IsDeleted: false } && Parse(item.Data) is { } data && IsProtected(data);
+
+    /// <summary>A note that is fully protected: encrypted bytes, no text, the extension .txts.</summary>
+    private static bool StaysProtected(NoteData data) => data.Bytes is not null && data.Content is null && HasProtectedExtension(data.Path);
+
+    private static bool HasProtectedExtension(string? path) => path?.TrimEnd('/', '\\').EndsWith(".txts", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>The data of a note, or null when it is none (no JSON, another shape).</summary>
+    private static NoteData? Parse(string? data)
+    {
+        if (string.IsNullOrEmpty(data))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<NoteData>(data, CloudContract.Json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     // ---- helpers ----
@@ -438,8 +518,11 @@ public static class NoteService
         UpdatedAt = DateTimeOffset.UtcNow,
     };
 
-    /// <summary>Pushes a note (or nothing) and every folder above it that the account does not keep yet, so empty folders show on every device too.</summary>
-    private static async Task PushAsync(AppDbContext db, Actor actor, SyncItemDto? note, string folder, CancellationToken ct)
+    /// <summary>
+    /// Pushes a note (or nothing) and every folder above it that the account does not keep yet, so empty folders show on every device too. The answer for
+    /// the note (null without one): <c>Applied</c> is false when the cloud kept what it has (a newer change, or a protected note that stays protected).
+    /// </summary>
+    private static async Task<SyncPushResult?> PushAsync(AppDbContext db, Actor actor, SyncItemDto? note, string folder, CancellationToken ct)
     {
         var items = new List<SyncItemDto>();
         if (folder.Length > 0)
@@ -455,10 +538,13 @@ public static class NoteService
             items.Add(note);
         }
 
-        if (items.Count > 0)
+        if (items.Count == 0)
         {
-            await SyncService.PushAsync(db, actor, App, new SyncPushRequest(items), ct);
+            return null;
         }
+
+        var response = await SyncService.PushAsync(db, actor, App, new SyncPushRequest(items), ct);
+        return note is null ? null : response.Results.FirstOrDefault(r => r.Collection == NotesCollection && r.Key == note.Key);
     }
 
     /// <summary>The pages of the account only: a device of ThixNote syncs through the general sync, not through these functions.</summary>
